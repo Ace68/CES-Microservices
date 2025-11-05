@@ -8,6 +8,7 @@ public static class DomainHelper
 {
     public static IServiceCollection AddWarehouseDomain(this IServiceCollection services)
     {
+        services.AddScoped<IWarehouseDomainService, WarehouseDomainService>();
         services.AddCommandHandler<PrepareSalesOrderCommandHandler>();
         
         return services;

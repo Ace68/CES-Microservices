@@ -25,6 +25,14 @@ public static class SalesEndpoints
                 "Creates a new sales order. This endpoint is used to add a new sales order.")
             .WithName("CreateSalesOrder");
         
+        group.MapPut("/{orderId}", HandleUpdateSalesOrder)
+            .Produces(StatusCodes.Status201Created)
+            .Produces(StatusCodes.Status500InternalServerError)
+            .WithSummary("Update sales order")
+            .WithDescription(
+                "Updates the sales order. This endpoint is used to update the sales order.")
+            .WithName("UpdateSalesOrder");
+        
         group.MapGet("/", HandleGetSalesOrder)
             .Produces<PagedResult<SalesOrderJson>>()
             .Produces(StatusCodes.Status500InternalServerError)
@@ -58,6 +66,17 @@ public static class SalesEndpoints
         {
             return Results.BadRequest();
         }
+    }
+
+    private static async Task<IResult> HandleUpdateSalesOrder(
+        ISalesDomainService salesDomainService,
+        string orderId,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        
+        await salesDomainService.UpdateSalesOrderAsync(orderId, cancellationToken);
+        return Results.NoContent();
     }
     
     private static async Task<IResult> HandleGetSalesOrder(

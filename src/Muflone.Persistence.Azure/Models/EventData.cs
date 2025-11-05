@@ -1,23 +1,12 @@
 ﻿namespace Muflone.Persistence.Azure.Models;
 
-/// <summary>Represents an event to be written.</summary>
 public sealed class EventData
 {
-	/// <summary>
-	/// The ID of the event, used as part of the idempotent write check.
-	/// </summary>
 	public readonly Guid EventId;
-	/// <summary>
-	/// The name of the event type. It is strongly recommended that these
-	/// use lowerCamelCase if projections are to be used.
-	/// </summary>
 	public readonly string Type;
-	/// <summary>Flag indicating whether the data and metadata are JSON.</summary>
 	public readonly bool IsJson;
-	/// <summary>The raw bytes of the event data.</summary>
-	public readonly byte[] Data;
-	/// <summary>The raw bytes of the event metadata.</summary>
-	public readonly byte[] Metadata;
+	public readonly string Data;
+	public readonly string Metadata;
 
 	/// <summary>
 	/// Constructs a new EventData
@@ -28,12 +17,12 @@ public sealed class EventData
 	/// <param name="isJson">Flag indicating whether the data and metadata are JSON.</param>
 	/// <param name="data">The raw bytes of the event data.</param>
 	/// <param name="metadata">The raw bytes of the event metadata.</param>
-	public EventData(Guid eventId, string type, bool isJson, byte[] data, byte[] metadata)
+	public EventData(Guid eventId, string type, bool isJson, string data, string metadata)
 	{
 		EventId = eventId;
 		Type = type;
 		IsJson = isJson;
-		Data = data ?? Enumerable.Empty<byte>().ToArray();
-		Metadata = metadata ?? Enumerable.Empty<byte>().ToArray();
+		Data = data ?? string.Empty;
+		Metadata = metadata ?? string.Empty;
 	}
 }

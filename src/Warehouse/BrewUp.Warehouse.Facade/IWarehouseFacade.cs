@@ -1,6 +1,8 @@
+using BrewUp.Shared.ExternalContracts;
+
 namespace BrewUp.Warehouse.Facade;
 
 public interface IWarehouseFacade
 {
-    // Placeholder for future Warehouse operations
+    Task<string> CreateProductAsync(CreateProductJson body, CancellationToken cancellationToken);
 }

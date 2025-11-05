@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using BrewUp.Shared.Configuration;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -9,20 +10,21 @@ namespace Muflone.Persistence.Azure;
 
 public static class PersistenceAzureHelper
 {
-	public static IServiceCollection AddEventstoreAzurePersistence(this IServiceCollection service,
+	public static IServiceCollection AddEventstoreAzurePersistence(this IServiceCollection services,
 		IConfigurationManager configurationManager)
 	{
-		service.AddDbContext<EventStoreContext>(options =>
+		services.AddDbContext<EventStoreContext>(options =>
 			options.UseSqlServer(configurationManager["Muflone:SqlStore:ConnectionString"]!));
-		service.AddScoped<IRepository, EventStoreRepository>();
+		services.AddScoped<IRepository, EventStoreRepository>();
 		
 		var eventhubParameters = configurationManager.GetSection("Muflone:EventHub").Get<EventHubParameters>();
-		service.AddSingleton<EventHubListener>(sp => 
+		services.AddSingleton<EventHubListener>(sp => 
 			new EventHubListener(
 				eventhubParameters!,
+				sp.GetRequiredService<IEventBus>(),
 				sp.GetRequiredService<ILogger<EventHubListener>>()));
-		service.AddHostedService<EventHubListenerHostedService>();
+		services.AddHostedService<EventHubListenerHostedService>();
 
-		return service;
+		return services;
 	}
 }

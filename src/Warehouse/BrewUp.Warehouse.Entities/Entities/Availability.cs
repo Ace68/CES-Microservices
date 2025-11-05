@@ -8,10 +8,9 @@ public class Availability : DtoBase
 {
     public string ProductId { get; private set; } = string.Empty;
     public string WarehouseReference { get; private set; } = string.Empty;
+    public double Quantity { get; private set; }
     
     public virtual Product Product { get; private set; } = null!;
-    
-    public double Quantity { get; private set; }
     
     protected Availability()
     {}
@@ -23,13 +22,15 @@ public class Availability : DtoBase
     
     private Availability(ProductId productId, WarehouseReference warehouseReference, ProductQuantity quantity)
     {
+        Id = Guid.NewGuid().ToString();
+        
         ProductId = productId.Value;
         WarehouseReference = warehouseReference.Value;
-        Quantity = (double) quantity.Quantity;
+        Quantity = quantity.Quantity;
     }
     
     internal void UpdateAvailability(ProductQuantity quantity)
     {
-        Quantity = (double) quantity.Quantity;
+        Quantity = quantity.Quantity;
     }
 }

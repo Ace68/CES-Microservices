@@ -25,4 +25,13 @@ internal class SalesDomainService(IServiceBus serviceBus) : ISalesDomainService
         
         return salesOrderId;
     }
+
+    public async Task UpdateSalesOrderAsync(string orderId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        CloseSalesOrder command = new(new SalesOrderId(orderId), new SalesOrderNumber("123"),
+            new SalesOrderDeliveryDate(DateTime.UtcNow), [], Guid.NewGuid());
+        await serviceBus.SendAsync(command, cancellationToken);
+    }
 }

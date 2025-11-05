@@ -52,6 +52,11 @@ public class SalesOrder : AggregateRoot
 	
 		_deliveryDate = @event.SalesOrderDeliveryDate;
 	}
+
+	internal void CloseOrder(SalesOrderDeliveryDate deliveryDate, Guid correlationId)
+	{
+		RaiseEvent(new SalesOrderClosed(new SalesOrderId(Id.Value), deliveryDate, correlationId));
+	}
 	
 	// private void Apply(SalesOrderDomainException @event)
 	// {

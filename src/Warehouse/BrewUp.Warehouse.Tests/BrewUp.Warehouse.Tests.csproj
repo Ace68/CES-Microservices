@@ -32,4 +32,8 @@
     <ProjectReference Include="..\BrewUp.Warehouse.Facade\BrewUp.Warehouse.Facade.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Entities\" />
+  </ItemGroup>
+
 </Project>

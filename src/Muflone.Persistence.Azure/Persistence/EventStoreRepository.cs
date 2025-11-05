@@ -1,8 +1,9 @@
 ﻿using Muflone.Persistence.Azure.Models;
-using System.Text;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Muflone.Core;
-using JsonSerializer = System.Text.Json.JsonSerializer;
+using Muflone.Persistence.Azure.Helpers;
+
 
 namespace Muflone.Persistence.Azure.Persistence;
 
@@ -41,13 +42,30 @@ public sealed class EventStoreRepository : IRepository
 	
 	public Task<TAggregate?> GetByIdAsync<TAggregate>(IDomainId id, CancellationToken cancellationToken = new ()) where TAggregate : class, IAggregate
 	{
-		throw new NotImplementedException();
+		return GetByIdAsync<TAggregate>(id, int.MaxValue, cancellationToken);
 	}
 
-	public Task<TAggregate?> GetByIdAsync<TAggregate>(IDomainId id, long version,
+	public async Task<TAggregate?> GetByIdAsync<TAggregate>(IDomainId id, long version,
 		CancellationToken cancellationToken = new ()) where TAggregate : class, IAggregate
 	{
-		throw new NotImplementedException();
+		cancellationToken.ThrowIfCancellationRequested();
+		
+		if (version <= 0)
+			throw new InvalidOperationException("Cannot get version <= 0");
+
+		var aggregate = ConstructAggregate<TAggregate>();
+
+		var readResult = await _eventStoreContext.Set<EventStore>()
+			.Where(a => a.AggregateId.Equals(id.Value))
+			.ToListAsync(cancellationToken: cancellationToken);
+		
+		foreach (var @event in readResult)
+			aggregate.ApplyEvent(RepositoryHelper.DeserializeEvent(new ResolvedEvent(id.Value, @event.Metadata, @event.Data)));
+
+		if (aggregate.Version != version && version < int.MaxValue)
+			throw new AggregateVersionException(id, typeof(TAggregate), aggregate.Version, version);
+
+		return aggregate;
 	}
 	
 	public async Task SaveAsync(IAggregate aggregate, Guid commitId, Action<IDictionary<string, object>> updateHeaders,
@@ -69,7 +87,7 @@ public sealed class EventStoreRepository : IRepository
 		var newEvents = aggregate.GetUncommittedEvents().Cast<object>().ToList();
 		var originalVersion = aggregate.Version - newEvents.Count;
 		var expectedVersion = originalVersion == 0 ? ExpectedVersion.NoStream : originalVersion - 1;
-		var eventsToSave = newEvents.Select(e => ToEventData(Guid.NewGuid(), e, commitHeaders)).ToList();
+		var eventsToSave = newEvents.Select(e => RepositoryHelper.ToEventData(Guid.NewGuid(), e, commitHeaders)).ToList();
 
 		try
 		{
@@ -78,10 +96,10 @@ public sealed class EventStoreRepository : IRepository
 
 			foreach (var entity in eventsToSave.Select(eventData => EventStore.Create(Guid.NewGuid().ToString(), aggregate.Id.Value,
 				         aggregateName, 
-				         aggregate.GetType().Assembly.FullName!,
+				         aggregate.GetType().AssemblyQualifiedName!,
 				         eventData.Type,
-				         Encoding.UTF8.GetString(eventData.Data),
-				         Encoding.UTF8.GetString(eventData.Metadata),
+				         eventData.Data,
+				         eventData.Metadata,
 				         ++originalVersion)))
 			{
 				await dbSet.AddAsync(entity, cancellationToken);
@@ -102,17 +120,8 @@ public sealed class EventStoreRepository : IRepository
 
     public Task SaveAsync(IAggregate aggregate, Guid commitId) => SaveAsync(aggregate, commitId, _ => { });
 
-	#region Helpers
-	private static EventData ToEventData(Guid eventId, object @event, IDictionary<string, object> headers)
-	{
-		var data = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(@event, SerializerOptions));
-		var eventHeaders = new Dictionary<string, object>(headers) { { EventClrTypeHeader, @event.GetType().AssemblyQualifiedName! } };
-		var metadata = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(eventHeaders, SerializerOptions));
-		var typeName = @event.GetType().Name;
-		
-		return new EventData(eventId, typeName, true, data, metadata);
-	}
-	#endregion
+    private static TAggregate ConstructAggregate<TAggregate>() =>
+	    (TAggregate) Activator.CreateInstance(typeof(TAggregate), true)!;
 
 	#region Dispose
 	private bool _disposedValue; // To detect redundant calls

@@ -6,10 +6,11 @@ using BrewUp.Shared.ExternalContracts;
 using Microsoft.Extensions.Logging.Abstractions;
 using Muflone.Messages.Commands;
 using Muflone.Messages.Events;
+using Muflone.SpecificationTests;
 
 namespace BrewUp.Sales.Tests.Entities;
 
-public sealed class CreateSalesOrderSuccessfully : SalesCommandSpecification<CreateSalesOrder>
+public sealed class CreateSalesOrderSuccessfully : CommandSpecification<CreateSalesOrder>
 {
     private readonly SalesOrderId _salesOrderId = SalesOrderId.New();
     private readonly SalesOrderNumber _salesOrderNumber = new("SO-001");

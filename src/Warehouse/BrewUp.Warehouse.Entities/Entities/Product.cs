@@ -30,6 +30,15 @@ public class Product : BrewUpAggregateRoot
         ProductDescription = productDescription.Value;
         ProductType = productType.Value;
     }
+    
+    public void AddAvailability(AvailabilityJson newAvailability)
+    {
+        Availability availability = Availability.Create(
+            new ProductId(Id),
+            new WarehouseReference(newAvailability.Reference),
+            new ProductQuantity(newAvailability.Quantity, "Bottles"));
+        Availabilities.Add(availability);
+    }
 
     public void PrepareSalesOrder(SalesOrderId salesOrderId, SalesOrderNumber salesOrderNumber,
         IEnumerable<SalesOrderRowJson> rows, Guid correlationId)

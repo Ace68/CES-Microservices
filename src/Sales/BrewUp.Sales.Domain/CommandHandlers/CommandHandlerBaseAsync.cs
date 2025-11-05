@@ -24,5 +24,5 @@ public abstract class CommandHandlerBaseAsync<TCommand>(IRepository repository, 
         }
     }
 
-    public abstract Task ProcessCommand(TCommand command, CancellationToken cancellationToken = default);
+    protected abstract Task ProcessCommand(TCommand command, CancellationToken cancellationToken = default);
 }

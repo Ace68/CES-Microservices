@@ -1,13 +1,10 @@
 ﻿using System.Reflection;
-using System.Text;
-using BrewUp.Infrastructure.Helpers;
 using BrewUp.Shared.Domain;
 using BrewUp.Shared.Exceptions;
 using BrewUp.Warehouse.Entities.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Muflone;
-using Muflone.Core;
 using Muflone.Messages.Events;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
@@ -166,123 +163,11 @@ public class ProductRepository(WarehouseContext warehouseContext,
         warehouseContext.Set<Product>().Remove(entity);
         await warehouseContext.SaveChangesAsync(cancellationToken);
     }
-
-    // private async Task CommitEventsAsync(SalesOrder entity, Guid commitId,
-    //     Action<IDictionary<string, object>> updateHeaders, CancellationToken cancellationToken)
-    // {
-    //     cancellationToken.ThrowIfCancellationRequested();
-    //
-    //     var commitHeaders = new Dictionary<string, object>
-    //     {
-    //         { SqlPersistenceHelper.CommitIdHeader, commitId },
-    //         { SqlPersistenceHelper.CommitDateHeader, DateTime.UtcNow},
-    //         { SqlPersistenceHelper.AggregateClrTypeHeader, entity.GetType().AssemblyQualifiedName! }
-    //     };
-    //     
-    //     updateHeaders(commitHeaders);
-    //
-    //     var newEvents = entity.GetUncommittedEvents().Cast<object>().ToList();
-    //     var eventsToSave = newEvents.Select(e => commitId.ToEventRecord(entity, e, commitHeaders)).ToList();
-    //
-    //     try
-    //     {
-    //         foreach (var @event in eventsToSave)
-    //         {
-    //             if (salesContext.Database.ProviderName?.Contains("InMemory") != true)
-    //             {
-    //                 await using var transaction = await salesContext.Database.BeginTransactionAsync(cancellationToken);
-    //                 salesContext.EventStore.Add(@event);
-    //                 await salesContext.SaveChangesAsync(cancellationToken);
-    //                 await transaction.CommitAsync(cancellationToken);
-    //             }
-    //             else
-    //             {
-    //                 // Skip transaction for InMemory provider
-    //                 salesContext.EventStore.Add(@event);
-    //                 await salesContext.SaveChangesAsync(cancellationToken);
-    //             }
-    //         }
-    //     }
-    //     catch (Exception ex)
-    //     {
-    //         UtilitiesService.LogError(ex, _logger);
-    //         throw;
-    //     }
-    // }
-    
-    #region IRepository Members
-    public Task<TAggregate?> GetByIdAsync<TAggregate>(IDomainId id, CancellationToken cancellationToken = new())
-        where TAggregate : class, IAggregate
-    {
-        return GetByIdAsync<TAggregate>(id, int.MaxValue, cancellationToken);
-    }
-
-    public Task<TAggregate?> GetByIdAsync<TAggregate>(IDomainId id, long version,
-        CancellationToken cancellationToken = new()) where TAggregate : class, IAggregate
-    {
-        throw new NotImplementedException();
-    }
-
-    public async Task SaveAsync(IAggregate aggregate, Guid commitId, Action<IDictionary<string, object>> updateHeaders,
-        CancellationToken cancellationToken = new())
-    {
-        var commitHeaders = new Dictionary<string, object>
-        {
-            { SqlPersistenceHelper.CommitIdHeader, commitId },
-            { SqlPersistenceHelper.CommitDateHeader, DateTime.UtcNow},
-            { SqlPersistenceHelper.AggregateClrTypeHeader, aggregate.GetType().AssemblyQualifiedName! }
-        };
-        updateHeaders(commitHeaders);
-
-        var newEvents = aggregate.GetUncommittedEvents().Cast<object>().ToList();
-        var eventsToSave = newEvents.Select(e => ToEventData(commitId, aggregate, e, commitHeaders)).ToList();
-
-        try
-        {
-            foreach (var @event in eventsToSave)
-            {
-                if (warehouseContext.Database.ProviderName?.Contains("InMemory") != true)
-                {
-                    await using var transaction = await warehouseContext.Database.BeginTransactionAsync(cancellationToken);
-                    await warehouseContext.SaveChangesAsync(cancellationToken);
-                    await transaction.CommitAsync(cancellationToken);
-                }
-                else
-                {
-                    // Skip transaction for InMemory provider
-                    await warehouseContext.SaveChangesAsync(cancellationToken);
-                }
-            }
-        }
-        catch(Exception ex)
-        {
-            UtilitiesService.LogError(ex, _logger);
-        }
-        
-        aggregate.ClearUncommittedEvents();
-    }
-
-    public async Task SaveAsync(IAggregate aggregate, Guid commitId, CancellationToken cancellationToken = new())
-    {
-        await SaveAsync(aggregate, commitId, headers => { }, cancellationToken);
-    }
     
     private static TAggregate ConstructAggregate<TAggregate>()
     {
         return (TAggregate)Activator.CreateInstance(typeof(TAggregate), true)!;
     }
-    
-    private static EventRecord ToEventData(Guid eventId, IAggregate aggregate, object @event, IDictionary<string, object> headers)
-    {
-        var data = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(@event, SerializerSettings));
-        var eventHeaders = new Dictionary<string, object>(headers) { { SqlPersistenceHelper.EventClrTypeHeader, @event.GetType().AssemblyQualifiedName! } };
-        var metadata = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(eventHeaders, SerializerSettings));
-        var typeName = @event.GetType().Name;
-
-        return EventRecord.Create(eventId, aggregate.Id.Value, aggregate.GetType().Name, aggregate.GetType().FullName!,
-            typeName, data, metadata, aggregate.Version);
-    }
-    #endregion
     
     #region IDisposable Support
     private bool _disposedValue; // To detect redundant calls

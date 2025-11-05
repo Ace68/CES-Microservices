@@ -9,11 +9,11 @@ namespace BrewUp.Sales.Domain.CommandHandlers;
 public sealed class CreateSalesOrderCommandHandler(IRepository repository,
     ILoggerFactory loggerFactory) : CommandHandlerBaseAsync<CreateSalesOrder>(repository, loggerFactory)
 {
-    public override async Task ProcessCommand(CreateSalesOrder command, CancellationToken cancellationToken = default)
+    protected override async Task ProcessCommand(CreateSalesOrder command, CancellationToken cancellationToken = default)
     {
         SalesOrder aggregate = SalesOrder.CreateSalesOrder((SalesOrderId) command.AggregateId, command.SalesOrderNumber,
             command.SalesOrderDate, command.CustomerId, command.CustomerName, command.SalesOrderDeliveryDate,
             command.Rows, command.MessageId);
-        await repository.SaveAsync(aggregate, Guid.NewGuid(), cancellationToken);
+        await Repository.SaveAsync(aggregate, Guid.NewGuid(), cancellationToken);
     }
 }

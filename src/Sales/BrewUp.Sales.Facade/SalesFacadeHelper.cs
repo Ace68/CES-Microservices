@@ -22,7 +22,7 @@ public static class SalesFacadeHelper
         services.AddScoped<ISalesFacade, SalesFacade>();
 
         services.AddSalesDomain();
-        services.AddSalesReadModel();
+        services.AddSalesReadModel(configurationManager);
         services.AddSalesInfrastructure(configurationManager);
 
         services.AddIntegrationEventHandler<SalesOrderProductsPreparedEventHandler>();
