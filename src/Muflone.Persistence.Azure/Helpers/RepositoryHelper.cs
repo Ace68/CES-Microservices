@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using Muflone.Messages.Events;
 using Muflone.Persistence.Azure.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -25,6 +26,34 @@ public static class RepositoryHelper
         {
             var eventClrTypeName = JObject.Parse(Encoding.UTF8.GetString(resolvedEvent.Metadata.ToArray())).Property(EventClrTypeHeader)!.Value;
             return JsonConvert.DeserializeObject(Encoding.UTF8.GetString(resolvedEvent.Data.ToArray()), Type.GetType(((string)eventClrTypeName)!)!)!;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            throw;
+        }
+    }
+    
+    public static DomainEvent DeserializeCloudEvent(ResolvedCloudEvent cloudEvent)
+    {
+        try
+        {
+            var metadataBytes = Enumerable.Range(0, cloudEvent.CloudEventMetadata.Length / 2)
+                .Select(x => Convert.ToByte(cloudEvent.CloudEventMetadata.Substring(x * 2, 2), 16))
+                .ToArray();
+            
+            string json = Encoding.UTF8.GetString(metadataBytes);
+            var eventHeaders = JsonConvert.DeserializeObject<Dictionary<string, object>>(json)!;
+            
+            var eventClrTypeName = eventHeaders[EventClrTypeHeader].ToString();
+            var eventType = Type.GetType(eventClrTypeName!, throwOnError: true);
+            
+            var dataBytes = Enumerable.Range(0, cloudEvent.CloudEventData.Length / 2)
+                .Select(x => Convert.ToByte(cloudEvent.CloudEventData.Substring(x * 2, 2), 16))
+                .ToArray();
+            var dataJson = Encoding.UTF8.GetString(dataBytes);
+
+            return (DomainEvent) JsonConvert.DeserializeObject(dataJson, eventType!)!;
         }
         catch (Exception e)
         {

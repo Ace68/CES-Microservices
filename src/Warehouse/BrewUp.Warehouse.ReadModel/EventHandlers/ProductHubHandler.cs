@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Text;
+using System.Text.Json;
 using Azure.Messaging.EventHubs;
 using Azure.Messaging.EventHubs.Consumer;
 using Azure.Messaging.EventHubs.Processor;
@@ -15,7 +16,7 @@ public sealed class ProductHubHandler(
         new BlobContainerClient(
             eventHubParameters.BlobStorageConnectionString,
             eventHubParameters.BlobStorageContainerName),
-        EventHubConsumerClient.DefaultConsumerGroupName,
+        "warehouse",
         eventHubParameters.EventHubConnectionString,
         eventHubParameters.EventHubName);
     
@@ -103,6 +104,8 @@ public sealed class ProductHubHandler(
         foreach (var col in cols)
         {
             var name = col.GetProperty("name").GetString();
+            Console.WriteLine($"\t{name}: {current[name]}");
+            var content = current[name];
             Console.WriteLine($"\t{name}: {current[name]}");
         }
  

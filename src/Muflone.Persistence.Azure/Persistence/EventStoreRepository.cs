@@ -1,5 +1,4 @@
 ﻿using Muflone.Persistence.Azure.Models;
-using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Muflone.Core;
 using Muflone.Persistence.Azure.Helpers;
@@ -9,26 +8,16 @@ namespace Muflone.Persistence.Azure.Persistence;
 
 public sealed class EventStoreRepository : IRepository
 {
-	private const string EventClrTypeHeader = "EventClrTypeName";
 	private const string AggregateClrTypeHeader = "AggregateClrTypeName";
 	private const string CommitIdHeader = "CommitId";
 	private const string CommitDateHeader = "CommitDate";
-	private static readonly JsonSerializerOptions SerializerOptions;
 
 	private readonly Func<Type, string, string> _aggregateIdToStreamName;
 
 	// private readonly BlobServiceClient _blobServiceClient;
 	private readonly EventStoreContext _eventStoreContext;
 
-	static EventStoreRepository()
-	{
-		SerializerOptions = new JsonSerializerOptions
-		{
-			WriteIndented = true
-		};
-	}
-
-	//This rename is needed to be consistent with naming convention of EventStore javascript
+	//This rename is needed to be consistent with naming convention of EventStore Javascript
 	public EventStoreRepository(EventStoreContext eventStoreContext)
 		: this(eventStoreContext, (type, aggregateId) => $"{type.Name.ToLower()}{aggregateId.Replace("-","")}")
 	{
@@ -60,7 +49,7 @@ public sealed class EventStoreRepository : IRepository
 			.ToListAsync(cancellationToken: cancellationToken);
 		
 		foreach (var @event in readResult)
-			aggregate.ApplyEvent(RepositoryHelper.DeserializeEvent(new ResolvedEvent(id.Value, @event.Metadata, @event.Data)));
+			aggregate.ApplyEvent(RepositoryHelper.DeserializeEvent(new ResolvedEvent(@event.Metadata, @event.Data)));
 
 		if (aggregate.Version != version && version < int.MaxValue)
 			throw new AggregateVersionException(id, typeof(TAggregate), aggregate.Version, version);

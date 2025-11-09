@@ -1,11 +1,19 @@
 ﻿using BrewUp.Sales.Entities.Dtos;
+using BrewUp.Sales.SharedKernel.CustomTypes;
+using BrewUp.Shared.Domain;
+using BrewUp.Shared.Exceptions;
 using BrewUp.Shared.ExternalContracts;
 using BrewUp.Shared.ReadModel;
+using Microsoft.Extensions.Logging;
 
 namespace BrewUp.Sales.ReadModel.Services;
 
-internal sealed class SalesOrderService(IQueries<SalesOrder> salesOrderQuery) : ISalesOrderService
+internal sealed class SalesOrderService(IQueries<SalesOrder> salesOrderQuery,
+    IBrewUpRepository<SalesOrder> salesOrderRepository,
+    ILoggerFactory loggerFactory) : ISalesOrderService
 {
+    private readonly ILogger _logger = loggerFactory.CreateLogger<SalesOrderService>();
+    
     public async Task<PagedResult<SalesOrderJson>> GetSalesOrdersAsync(int page, int pageSize, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -18,5 +26,23 @@ internal sealed class SalesOrderService(IQueries<SalesOrder> salesOrderQuery) : 
                 orderResult.Page, orderResult.PageSize, orderResult.TotalRecords)
             : new PagedResult<SalesOrderJson>(
                 new List<SalesOrderJson>(), 0, 0, 0);
+    }
+
+    public async Task CreateSalesOrderReadModelAsync(SalesOrderId salesOrderId, SalesOrderNumber salesOrderNumber,
+        SalesOrderDate salesOrderDate, CustomerId customerId, CustomerName customerName,
+        SalesOrderDeliveryDate salesOrderDeliveryDate, IEnumerable<SalesOrderRowJson> rows, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        
+        try
+        {
+            await salesOrderRepository.AddAsync(SalesOrder.Create(salesOrderId, salesOrderNumber,
+                salesOrderDate, customerId, customerName, salesOrderDeliveryDate, rows,
+                Guid.NewGuid()), cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            UtilitiesService.LogError(ex, _logger);
+        }
     }
 }

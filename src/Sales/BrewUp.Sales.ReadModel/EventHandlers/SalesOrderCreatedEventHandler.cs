@@ -1,12 +1,12 @@
-﻿using BrewUp.Sales.SharedKernel.CustomTypes;
+﻿using BrewUp.Sales.ReadModel.Services;
+using BrewUp.Sales.SharedKernel.CustomTypes;
 using BrewUp.Sales.SharedKernel.Messages.Events;
 using Microsoft.Extensions.Logging;
-using Muflone;
 
 namespace BrewUp.Sales.ReadModel.EventHandlers;
 
 public sealed class SalesOrderCreatedEventHandler(
-    IEventBus eventBus,
+    ISalesOrderService salesOrderService,
     ILoggerFactory loggerFactory) 
     : DomainEventHandlerBaseAsync<SalesOrderCreated>(loggerFactory)
 {
@@ -14,15 +14,8 @@ public sealed class SalesOrderCreatedEventHandler(
     {
         cancellationToken.ThrowIfCancellationRequested();
         
-        var correlationId = GetCorrelationIdFromEvent(@event);
-        
-        SalesOrderReadyForProcessing integrationEvent = new (
-            new SalesOrderId(@event.AggregateId.Value),
-            @event.SalesOrderNumber,
-            @event.SalesOrderDeliveryDate,
-            @event.Rows,
-            correlationId);
-        
-        await eventBus.PublishAsync(integrationEvent, cancellationToken);
+        await salesOrderService.CreateSalesOrderReadModelAsync((SalesOrderId) @event.AggregateId,
+            @event.SalesOrderNumber, @event.SalesOrderDate, @event.CustomerId, @event.CustomerName,
+            @event.SalesOrderDeliveryDate, @event.Rows, cancellationToken);
     }
 }

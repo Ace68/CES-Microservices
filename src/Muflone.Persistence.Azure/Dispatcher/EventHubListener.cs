@@ -1,12 +1,9 @@
-﻿using System.Text;
-using System.Text.Json;
+﻿using System.Text.Json;
 using Azure.Messaging.EventHubs;
-using Azure.Messaging.EventHubs.Consumer;
 using Azure.Messaging.EventHubs.Processor;
 using Azure.Storage.Blobs;
 using BrewUp.Shared.Configuration;
 using Microsoft.Extensions.Logging;
-using Muflone.Messages.Events;
 using Muflone.Persistence.Azure.Helpers;
 using Muflone.Persistence.Azure.Models;
 
@@ -22,7 +19,7 @@ public sealed class EventHubListener(
         new BlobContainerClient(
             eventHubParameters.BlobStorageConnectionString,
             eventHubParameters.BlobStorageContainerName),
-        EventHubConsumerClient.DefaultConsumerGroupName,
+        "eventstore",
         eventHubParameters.EventHubConnectionString,
         eventHubParameters.EventHubName);
     
@@ -55,8 +52,8 @@ public sealed class EventHubListener(
             var cols = data.GetProperty("eventsource").GetProperty("cols").EnumerateArray();
             var current = JsonSerializer.Deserialize<Dictionary<string, string>>(data.GetProperty("eventrow").GetProperty("current").GetString()!);
  
-            var @event = RepositoryHelper.DeserializeEvent(GetEventElements(cols, current!));
-            await eventBus.PublishAsync((DomainEvent) @event, _cts!.Token).ConfigureAwait(false);
+            var @event = RepositoryHelper.DeserializeCloudEvent(GetEventElements(cols, current!));
+            await eventBus.PublishAsync(@event, _cts!.Token).ConfigureAwait(false);
  
             // Persist progress so we don't reprocess this event on restart
             await eventArgs.UpdateCheckpointAsync();
@@ -69,30 +66,25 @@ public sealed class EventHubListener(
         }
     }
     
-    private static ResolvedEvent GetEventElements(JsonElement.ArrayEnumerator cols, Dictionary<string, string> current)
+    private static ResolvedCloudEvent GetEventElements(JsonElement.ArrayEnumerator cols, Dictionary<string, string> current)
     {
-        string aggregateId = string.Empty;
-        byte[] metadata = [];
-        byte[] data = [];
+        string metadata = string.Empty;
+        string data = string.Empty;
         
         foreach (var name in cols.Select(col => col.GetProperty("name").GetString()))
         {
             switch (name)
             {
-                case "AggregateId":
-                    aggregateId = current[name];
-                    break;
-                    
                 case "Metadata":
-                    metadata = Encoding.UTF8.GetBytes(current[name]);
+                    metadata = current[name];
                     break;
                 case "Data":
-                    data = Encoding.UTF8.GetBytes(current[name]);
+                    data = current[name];
                     break;
             }
         }
  
-        return new ResolvedEvent(aggregateId, metadata, data);
+        return new ResolvedCloudEvent(metadata, data);
     }
 
     private static Task ProcessErrorHandler(ProcessErrorEventArgs e)
@@ -108,11 +100,8 @@ public sealed class EventHubListener(
     {
         await _cts?.CancelAsync()!;
         await _eventProcessorClient.StopProcessingAsync();
+        // ReSharper disable once GCSuppressFinalizeForTypeWithoutDestructor
         GC.SuppressFinalize(this);
-    }
-    
-    ~EventHubListener()
-    {
     }
     #endregion
 }

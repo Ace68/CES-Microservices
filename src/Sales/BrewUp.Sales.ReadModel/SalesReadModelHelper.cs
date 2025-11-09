@@ -18,6 +18,7 @@ public static class SalesReadModelHelper
         services.AddScoped<ISalesOrderService, SalesOrderService>();
 
         services.AddDomainEventHandler<SalesOrderCreatedEventHandler>();
+        services.AddDomainEventHandler<SalesOrderCreatedForIntegrationEventHandler>();
 
         return services;
     }

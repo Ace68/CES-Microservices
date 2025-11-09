@@ -14,11 +14,11 @@ public static class WarehouseReadModelHelper
     {
         services.AddDomainEventHandler<AvailabilityUpdatedEventHandler>();
         
-        // var eventhubParameters = configurationManager.GetSection("Muflone:EventHub").Get<EventHubParameters>();
-        // services.AddSingleton<ProductHubHandler>(_ => 
-        //     new ProductHubHandler(
-        //         eventhubParameters!));
-        // services.AddHostedService<EventHubListenerHostedService>();
+        var eventhubParameters = configurationManager.GetSection("Muflone:EventHub").Get<EventHubParameters>();
+        services.AddSingleton<ProductHubHandler>(_ => 
+            new ProductHubHandler(
+                eventhubParameters!));
+        services.AddHostedService<EventHubListenerHostedService>();
 
         return services;
     }
