@@ -1,3 +1,5 @@
-﻿namespace BrewUp.Sales.SharedKernel.CustomTypes;
+﻿using Muflone.Core;
 
-public record ProductId(string Value);
+namespace BrewUp.Sales.SharedKernel.CustomTypes;
+
+public class ProductId(string value) : DomainId(value);

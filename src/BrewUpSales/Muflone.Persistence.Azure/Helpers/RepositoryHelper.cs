@@ -1,4 +1,6 @@
-﻿using System.Text;
+﻿using System.ComponentModel.DataAnnotations.Schema;
+using System.Text;
+using System.Text.Json;
 using Muflone.Messages.Events;
 using Muflone.Persistence.Azure.Models;
 using Newtonsoft.Json;
@@ -60,5 +62,12 @@ public static class RepositoryHelper
             Console.WriteLine(e);
             throw;
         }
+    }
+    
+    public static string GetTableNameFromEvent(JsonElement data)
+    {
+        var schema = data.GetProperty("eventsource").GetProperty("schema").GetString();
+        var table = data.GetProperty("eventsource").GetProperty("tbl").GetString();
+        return $"[{schema}].[{table}]";
     }
 }

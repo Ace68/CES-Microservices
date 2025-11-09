@@ -2,6 +2,7 @@
 using BrewUp.Sales.ReadModel.EventHandlers;
 using BrewUp.Sales.ReadModel.Queries;
 using BrewUp.Sales.ReadModel.Services;
+using BrewUp.Shared.Configuration;
 using BrewUp.Shared.ReadModel;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,9 +17,18 @@ public static class SalesReadModelHelper
     {
         services.AddScoped<IQueries<SalesOrder>, SalesOrderQuery>();
         services.AddScoped<ISalesOrderService, SalesOrderService>();
+        services.AddScoped<IProductService, ProductService>();
 
         services.AddDomainEventHandler<SalesOrderCreatedEventHandler>();
         services.AddDomainEventHandler<SalesOrderCreatedForIntegrationEventHandler>();
+        services.AddIntegrationEventHandler<ProductCreatedEventHandler>();
+        
+        var eventhubParameters = configurationManager.GetSection("Muflone:EventHub").Get<EventHubParameters>();
+        services.AddSingleton<ProductHubHandler>(sp => 
+            new ProductHubHandler(
+                eventhubParameters!,
+                sp.GetRequiredService<IEventBus>()));
+        services.AddHostedService<EventHubListenerHostedService>();
 
         return services;
     }

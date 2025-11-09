@@ -9,9 +9,12 @@
   <ItemGroup>
     <PackageReference Include="Azure.Messaging.EventHubs" Version="5.12.2" />
     <PackageReference Include="Azure.Messaging.EventHubs.Processor" Version="5.12.2" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.10" />
+    <PackageReference Include="Muflone" Version="8.5.0" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\Muflone.Persistence.Azure\Muflone.Persistence.Azure.csproj" />
     <ProjectReference Include="..\BrewUp.Sales.Infrastructure\BrewUp.Sales.Infrastructure.csproj" />
   </ItemGroup>
 

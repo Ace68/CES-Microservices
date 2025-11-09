@@ -3,6 +3,7 @@ using Azure.Messaging.EventHubs;
 using Azure.Messaging.EventHubs.Processor;
 using Azure.Storage.Blobs;
 using BrewUp.Shared.Configuration;
+using BrewUp.Shared.Exceptions;
 using Microsoft.Extensions.Logging;
 using Muflone.Persistence.Azure.Helpers;
 using Muflone.Persistence.Azure.Models;
@@ -51,6 +52,13 @@ public sealed class EventHubListener(
             var data = innerDoc.RootElement;
             var cols = data.GetProperty("eventsource").GetProperty("cols").EnumerateArray();
             var current = JsonSerializer.Deserialize<Dictionary<string, string>>(data.GetProperty("eventrow").GetProperty("current").GetString()!);
+            
+            var tableName = RepositoryHelper.GetTableNameFromEvent(data);
+            if (tableName != "[dbo].[EventStore]")
+            {
+                await eventArgs.UpdateCheckpointAsync();
+                return;
+            }
  
             var @event = RepositoryHelper.DeserializeCloudEvent(GetEventElements(cols, current!));
             await eventBus.PublishAsync(@event, _cts!.Token).ConfigureAwait(false);
@@ -60,9 +68,7 @@ public sealed class EventHubListener(
         }
         catch (Exception ex)
         {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine(ex.Message);
-            Console.ResetColor();
+            UtilitiesService.LogError(ex, logger);
         }
     }
     
@@ -87,10 +93,10 @@ public sealed class EventHubListener(
         return new ResolvedCloudEvent(metadata, data);
     }
 
-    private static Task ProcessErrorHandler(ProcessErrorEventArgs e)
+    private static Task ProcessErrorHandler(ProcessErrorEventArgs ex)
     {
         Console.ForegroundColor = ConsoleColor.Red;
-        Console.WriteLine(e.Exception.Message);
+        Console.WriteLine(ex.Exception.Message);
         Console.ResetColor();
         return Task.CompletedTask;
     }

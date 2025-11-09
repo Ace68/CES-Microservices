@@ -1,9 +1,8 @@
-﻿using BrewUp.Shared.Domain;
+﻿using BrewUp.Sales.SharedKernel.CustomTypes;
+using BrewUp.Shared.Domain;
 using BrewUp.Shared.ExternalContracts;
-using BrewUp.Warehouse.SharedKernel.CustomTypes;
-using BrewUp.Warehouse.SharedKernel.Messages.Events;
 
-namespace BrewUp.Warehouse.Entities.Entities;
+namespace BrewUp.Sales.Entities.Dtos;
 
 public class Product : BrewUpAggregateRoot
 {

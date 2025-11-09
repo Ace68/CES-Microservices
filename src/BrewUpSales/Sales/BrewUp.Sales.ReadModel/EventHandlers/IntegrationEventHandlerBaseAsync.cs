@@ -3,10 +3,10 @@ using Muflone.Messages.Events;
 
 namespace BrewUp.Sales.ReadModel.EventHandlers;
 
-public abstract class DomainEventHandlerBaseAsync<TEvent>(ILoggerFactory loggerFactory) 
-    : IDomainEventHandlerAsync<TEvent> where TEvent : DomainEvent
+public abstract class IntegrationEventHandlerBaseAsync<TEvent>(ILoggerFactory loggerFactory) 
+    : IIntegrationEventHandlerAsync<TEvent> where TEvent : IntegrationEvent
 {
-    protected readonly ILogger Logger = loggerFactory.CreateLogger<DomainEventHandlerBaseAsync<TEvent>>();
+    protected readonly ILogger Logger = loggerFactory.CreateLogger<IntegrationEventHandlerBaseAsync<TEvent>>();
 
     public abstract Task HandleAsync(TEvent message, CancellationToken cancellationToken = new());
     
@@ -34,7 +34,7 @@ public abstract class DomainEventHandlerBaseAsync<TEvent>(ILoggerFactory loggerF
         GC.SuppressFinalize(this);
     }
 
-    ~DomainEventHandlerBaseAsync()
+    ~IntegrationEventHandlerBaseAsync()
     {
         Dispose(false);
     }
