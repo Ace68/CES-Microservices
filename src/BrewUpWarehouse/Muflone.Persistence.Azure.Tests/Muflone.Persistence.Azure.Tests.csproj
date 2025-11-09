@@ -20,7 +20,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\Muflone.Persistence.Azure\Muflone.Persistence.Azure.csproj" />
-      <ProjectReference Include="..\Sales\BrewUp.Sales.SharedKernel\BrewUp.Sales.SharedKernel.csproj" />
+      <ProjectReference Include="..\Warehouse\BrewUp.Warehouse.SharedKernel\BrewUp.Warehouse.SharedKernel.csproj" />
     </ItemGroup>
 
 </Project>

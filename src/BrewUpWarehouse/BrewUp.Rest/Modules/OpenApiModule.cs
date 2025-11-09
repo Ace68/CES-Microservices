@@ -17,12 +17,12 @@ public class OpenApiModule : IModule
                 document.Servers = [new OpenApiServer {Url = "/"}];
                 document.Info = new OpenApiInfo
                 {
-                    Title = "BrewUp Sales API",
+                    Title = "BrewUp Warehouse API",
                     Version = "v1.0",
-                    Description = "BrewUp API for managing a Brewery sales system.",
+                    Description = "BrewUp API for managing the a Brewery warehouse.",
                     Contact = new OpenApiContact
                     {
-                        Name = "BrewUp Sales Team"
+                        Name = "BrewUp-Warehouse Team",
                     }
                 };
 
