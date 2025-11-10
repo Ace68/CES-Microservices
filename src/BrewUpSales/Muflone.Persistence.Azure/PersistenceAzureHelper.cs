@@ -10,12 +10,13 @@ namespace Muflone.Persistence.Azure;
 
 public static class PersistenceAzureHelper
 {
-	public static IServiceCollection AddEventstoreAzurePersistence(this IServiceCollection services,
+	public static IServiceCollection AddEventStoreAzurePersistence(this IServiceCollection services,
 		IConfigurationManager configurationManager)
 	{
 		services.AddDbContext<EventStoreContext>(options =>
 			options.UseSqlServer(configurationManager["Muflone:SqlStore:ConnectionString"]!));
 		services.AddScoped<IRepository, EventStoreRepository>();
+		services.AddScoped<IEventStoreService, EventStoreService>();
 		
 		var eventhubParameters = configurationManager.GetSection("Muflone:EventHub").Get<EventHubParameters>();
 		services.AddSingleton<EventHubListener>(sp => 

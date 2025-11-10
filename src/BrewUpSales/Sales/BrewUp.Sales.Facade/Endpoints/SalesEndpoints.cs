@@ -6,6 +6,7 @@ using BrewUp.Shared.Validation;
 using FluentValidation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Muflone.Persistence.Azure;
 
 namespace BrewUp.Sales.Facade.Endpoints;
 
@@ -40,6 +41,14 @@ public static class SalesEndpoints
             .WithDescription(
                 "Get a list of sales orders.")
             .WithName("GetSalesOrder");
+        
+        group.MapGet("/events/{aggregateId}", HandleGetSalesOrderEvents)
+            .Produces<PagedResult<SalesOrderJson>>()
+            .Produces(StatusCodes.Status500InternalServerError)
+            .WithSummary("Get a list of sales order events")
+            .WithDescription(
+                "Get a list of sale order events.")
+            .WithName("GetSalesOrderEvents");
 
         return app;
     }
@@ -91,5 +100,17 @@ public static class SalesEndpoints
             await salesOrderService.GetSalesOrdersAsync(page, pageSize, cancellationToken);
         
         return Results.Ok(result);
+    }
+
+    private static async Task<IResult> HandleGetSalesOrderEvents(
+        IEventStoreService eventStoreService,
+        string aggregateId,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var events = await eventStoreService.GetAllAggregateEventsAsync(aggregateId, cancellationToken);
+        
+        return Results.Ok(events);
     }
 }

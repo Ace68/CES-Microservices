@@ -1,5 +1,4 @@
-﻿using BrewUp.Shared.Exceptions;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Muflone.Messages.Events;
 using Muflone.Persistence.Azure.Helpers;
@@ -32,7 +31,7 @@ public sealed class EventDispatcher(EventStoreContext eventStoreContext,
         }
         catch (Exception ex)
         {
-            UtilitiesService.LogError(ex, _logger);
+            _logger.LogError(ex, "Error dispatching events");
         }
     }
 }

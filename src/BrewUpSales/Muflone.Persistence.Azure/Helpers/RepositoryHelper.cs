@@ -1,6 +1,6 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using Muflone.Messages.Events;
 using Muflone.Persistence.Azure.Models;
 using Newtonsoft.Json;
@@ -11,6 +11,7 @@ namespace Muflone.Persistence.Azure.Helpers;
 public static class RepositoryHelper
 {
     private const string EventClrTypeHeader = "EventClrTypeName";
+    private static readonly ILogger Logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger("RepositoryHelper");
     
     public static EventData ToEventData(Guid eventId, object @event, IDictionary<string, object> headers)
     {
@@ -21,6 +22,37 @@ public static class RepositoryHelper
 		
         return new EventData(eventId, typeName, true, data, metadata);
     }
+
+    public static DeserializedEvent ToDeserializedEvent(EventStore @event)
+    {
+        var metadata = DeserializeMetadata(new ResolvedEvent(@event.Metadata, @event.Data));
+        
+        DateTime commitDate = DateTime.MinValue;
+        if (!metadata.TryGetValue("CommitDate", out var commitDateObj))
+            return new DeserializedEvent(@event.AggregateId, @event.AggregateName, @event.AggregateType,
+                @event.EventType,
+                commitDate, @event.Version, @event.CommitPosition);
+        
+        var commitDateStr = commitDateObj?.ToString();
+        commitDate = DateTime.Parse(commitDateStr!);
+        
+        return new DeserializedEvent(@event.AggregateId, @event.AggregateName, @event.AggregateType, @event.EventType,
+            commitDate, @event.Version, @event.CommitPosition);
+    }
+    
+    public static Dictionary<string, object> DeserializeMetadata(ResolvedEvent resolvedEvent)
+    {
+        try
+        {
+            var metadataJson = Encoding.UTF8.GetString(resolvedEvent.Metadata.ToArray());
+            return JsonConvert.DeserializeObject<Dictionary<string, object>>(metadataJson)!;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error deserializing metadata");
+            throw;
+        }
+    }
     
     public static object DeserializeEvent(ResolvedEvent resolvedEvent)
     {
@@ -29,9 +61,9 @@ public static class RepositoryHelper
             var eventClrTypeName = JObject.Parse(Encoding.UTF8.GetString(resolvedEvent.Metadata.ToArray())).Property(EventClrTypeHeader)!.Value;
             return JsonConvert.DeserializeObject(Encoding.UTF8.GetString(resolvedEvent.Data.ToArray()), Type.GetType(((string)eventClrTypeName)!)!)!;
         }
-        catch (Exception e)
+        catch (Exception ex)
         {
-            Console.WriteLine(e);
+            Logger.LogError(ex, "Error deserializing event");
             throw;
         }
     }
@@ -57,17 +89,25 @@ public static class RepositoryHelper
 
             return (DomainEvent) JsonConvert.DeserializeObject(dataJson, eventType!)!;
         }
-        catch (Exception e)
+        catch (Exception ex)
         {
-            Console.WriteLine(e);
+            Logger.LogError(ex, "Error deserializing CloudEvent");
             throw;
         }
     }
     
     public static string GetTableNameFromEvent(JsonElement data)
     {
-        var schema = data.GetProperty("eventsource").GetProperty("schema").GetString();
-        var table = data.GetProperty("eventsource").GetProperty("tbl").GetString();
-        return $"[{schema}].[{table}]";
+        try
+        {
+            var schema = data.GetProperty("eventsource").GetProperty("schema").GetString();
+            var table = data.GetProperty("eventsource").GetProperty("tbl").GetString();
+            return $"[{schema}].[{table}]";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error retreiving table name from event");
+            throw;
+        }
     }
 }

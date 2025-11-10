@@ -12,7 +12,7 @@ public class InfrastructureModule : IModule
     public IServiceCollection Register(WebApplicationBuilder builder)
     {
         builder.Services.AddScoped<ValidationHandler>();
-        builder.Services.AddEventstoreAzurePersistence(builder.Configuration);
+        builder.Services.AddEventStoreAzurePersistence(builder.Configuration);
         builder.Services.AddInMemoryBroker();
         
         return builder.Services;
