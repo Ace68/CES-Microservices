@@ -15,7 +15,7 @@ internal class SalesDomainService(IServiceBus serviceBus) : ISalesDomainService
         
         CreateSalesOrder command = new CreateSalesOrder(new SalesOrderId(salesOrderId),
             new SalesOrderNumber(body.OrderNumber),
-            new SalesOrderDate(body.OrderDate),
+            new SalesOrderDate(DateTime.UtcNow),
             new CustomerId(body.CustomerId),
             new CustomerName(body.CustomerName),
             new SalesOrderDeliveryDate(body.DeliveryDate),

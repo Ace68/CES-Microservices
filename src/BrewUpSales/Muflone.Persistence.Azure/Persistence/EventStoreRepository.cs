@@ -76,6 +76,9 @@ public sealed class EventStoreRepository : IRepository
 		var newEvents = aggregate.GetUncommittedEvents().Cast<object>().ToList();
 		var originalVersion = aggregate.Version - newEvents.Count;
 		var expectedVersion = originalVersion + 1;
+		if (expectedVersion != aggregate.Version)
+			throw new AggregateVersionException(aggregate.Id, aggregate.GetType(), originalVersion, aggregate.Version);
+		
 		var eventsToSave = newEvents.Select(e => RepositoryHelper.ToEventData(Guid.NewGuid(), e, commitHeaders)).ToList();
 
 		try

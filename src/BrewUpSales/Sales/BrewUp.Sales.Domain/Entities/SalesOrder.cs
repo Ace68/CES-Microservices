@@ -1,6 +1,8 @@
 ﻿using BrewUp.Sales.Domain.Helpers;
 using BrewUp.Sales.SharedKernel.CustomTypes;
+using BrewUp.Sales.SharedKernel.Enums;
 using BrewUp.Sales.SharedKernel.Messages.Events;
+using BrewUp.Shared.Exceptions;
 using BrewUp.Shared.ExternalContracts;
 using Muflone.Core;
 
@@ -8,16 +10,16 @@ namespace BrewUp.Sales.Domain.Entities;
 
 public class SalesOrder : AggregateRoot
 {
-	internal SalesOrderNumber _salesOrderNumber;
-	internal SalesOrderDate _orderDate;
+	internal SalesOrderNumber SalesOrderNumber = null!;
+	internal SalesOrderDate OrderDate = null!;
 
-	internal CustomerId _customerId;
-	internal CustomerName _customerName;
+	internal CustomerId CustomerId = null!;
+	internal CustomerName CustomerName = null!;
 
-	internal IEnumerable<SalesOrderRow> _rows;
+	internal IEnumerable<SalesOrderRow> Rows = [];
 	
-	internal SalesOrderDeliveryDate _deliveryDate;
-	// internal OrderState _orderState;
+	internal SalesOrderDeliveryDate DeliveryDate = new (DateTime.MaxValue);
+	internal OrderStateEnum OrderState = OrderStateEnum.Open;
 
 	protected SalesOrder()
 	{
@@ -44,22 +46,38 @@ public class SalesOrder : AggregateRoot
 	private void Apply(SalesOrderCreated @event)
 	{
 		Id = @event.AggregateId;
-		_salesOrderNumber = @event.SalesOrderNumber;
-		_orderDate = @event.SalesOrderDate;
-		_customerId = @event.CustomerId;
-		_customerName = @event.CustomerName;
-		_rows = @event.Rows.MapToDomainRows();
+		SalesOrderNumber = @event.SalesOrderNumber;
+		OrderDate = @event.SalesOrderDate;
+		CustomerId = @event.CustomerId;
+		CustomerName = @event.CustomerName;
+		Rows = @event.Rows.MapToDomainRows();
 	
-		_deliveryDate = @event.SalesOrderDeliveryDate;
+		DeliveryDate = @event.SalesOrderDeliveryDate;
+		
+		OrderState = OrderStateEnum.Open;
 	}
 
 	internal void CloseOrder(SalesOrderDeliveryDate deliveryDate, Guid correlationId)
 	{
+		if (Equals(OrderState, OrderStateEnum.Close))
+		{
+			RaiseEvent(new SalesOrderExceptionRaised(new SalesOrderId(Id.Value),
+				new BrewUpAggregateException(Id.Value, GetType().FullName!, "Order Already Closed!"), correlationId));
+			return;
+		}
+		
 		RaiseEvent(new SalesOrderClosed(new SalesOrderId(Id.Value), deliveryDate, correlationId));
 	}
+
+	private void Apply(SalesOrderClosed @event)
+	{
+		DeliveryDate = @event.SalesOrderDeliveryDate;
+		
+		OrderState = OrderStateEnum.Close;
+	}
 	
-	// private void Apply(SalesOrderDomainException @event)
-	// {
-	// 	// do nothing
-	// }
+	private void Apply(SalesOrderExceptionRaised @event)
+	{
+		// No state change
+	}
 }
