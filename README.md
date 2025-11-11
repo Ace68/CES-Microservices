@@ -1,6 +1,101 @@
-# Enable Change Event Streaming (CES) on SQL Server
+# SQL Server 2025 Change Event Streaming - Microservices Demo
 
-Change Event Streaming (CES) is one of the most exciting new features coming in SQL Server 2025. It allows you to continuously stream row-level changes from your tables directly into Azure Event Hubs, where multiple consumer applications can subscribe to the event data in real time.
+This repository demonstrates practical implementations of **Change Event Streaming (CES)**, a groundbreaking feature in SQL Server 2025 that enables real-time data synchronization between microservices through Azure Event Hubs.
+
+## Overview
+
+Change Event Streaming allows SQL Server to continuously stream row-level changes from tables directly into Azure Event Hubs as CloudEvents. This enables event-driven architectures where multiple consumer applications can subscribe to data changes in real time, facilitating seamless microservice communication without tight coupling.
+
+## Architecture
+
+This solution consists of two independent microservices, each with its own database:
+
+### 1. Warehouse Microservice (`src/BrewUpWarehouse`)
+
+- Manages product inventory and warehouse operations
+- Database: SQL Server (Warehouse DB)
+- Publishes product changes via Change Event Streaming
+- Subscribes to sales order integration events
+
+### 2. Sales Microservice (`src/BrewUpSales`)
+
+- Handles sales orders using CQRS-ES pattern
+- Database: SQL Server (Sales DB)
+- Subscribes to product changes from Warehouse
+- Publishes sales order events via Change Event Streaming
+
+## Demo Scenarios
+
+### Scenario 1: Product Synchronization (Warehouse → Sales)
+
+**Flow:**
+
+1. A new product is created through the Warehouse API
+2. Product data is persisted in the Warehouse SQL Server database
+3. Change Event Streaming automatically publishes a CloudEvent to Azure Event Hub (`producthub`)
+4. Sales microservice subscribes to the Event Hub
+5. Sales microservice receives the notification and updates its Product table in the Sales database
+
+**Key Technologies:**
+
+- SQL Server Change Event Streaming on `dbo.Product` table
+- Azure Event Hub as message broker
+- CloudEvents standard for event format
+
+**Use Case:** Ensures product catalog consistency across microservices without direct API calls or database coupling.
+
+### Scenario 2: Event Sourcing with Integration Events (Sales → Warehouse)
+
+**Flow:**
+
+1. A new sales order is created through the Sales API
+2. Using CQRS-ES pattern, a `SalesOrderCreated` domain event is raised
+3. Event is persisted in the EventStore table (SQL Server - Sales DB)
+4. Change Event Streaming publishes the event to Azure Event Hub (`eventstorehub`)
+5. Sales microservice subscribes to its own Event Hub to:
+   - Update the read model (SalesOrder table in Sales DB)
+   - Generate an integration event for Warehouse
+6. Warehouse microservice subscribes to the integration event and processes it
+
+**Key Technologies:**
+
+- CQRS-ES (Command Query Responsibility Segregation - Event Sourcing)
+- SQL Server Change Event Streaming on `dbo.EventStore` table
+- Azure Event Hub for event distribution
+- Event-driven integration between bounded contexts
+
+**Use Case:** Implements event sourcing with automatic event distribution, enabling audit trails, temporal queries, and reliable cross-service communication.
+
+## Architecture Diagram
+
+```text
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Azure Event Hubs                            │
+│  ┌──────────────────────┐          ┌──────────────────────┐        │
+│  │   producthub         │          │   eventstorehub      │        │
+│  └──────────────────────┘          └──────────────────────┘        │
+└─────────────────────────────────────────────────────────────────────┘
+           ▲                                    ▲         │
+           │ CloudEvents                        │         │ CloudEvents
+           │                                    │         │
+┌──────────┴────────────┐           ┌───────────┴─────────▼───────────┐
+│  Warehouse Service    │           │     Sales Service (CQRS-ES)     │
+│  ─────────────────    │           │     ─────────────────────       │
+│  • Product API        │           │     • Sales Order API           │
+│  • SQL Server DB      │           │     • EventStore (Write)        │
+│    - dbo.Product      │           │     • SalesOrder (Read Model)   │
+│      [CES Enabled]    │           │     • SQL Server DB             │
+│                       │           │       - dbo.EventStore          │
+│  Publishes Product    │           │         [CES Enabled]           │
+│  changes              │           │       - dbo.SalesOrder          │
+└───────────────────────┘           │       - dbo.Product             │
+                                    │                                 │
+                                    │  Subscribes to producthub      │
+                                    └─────────────────────────────────┘
+
+Scenario 1: Warehouse creates Product → CES → Event Hub → Sales subscribes
+Scenario 2: Sales creates Order → EventStore → CES → Event Hub → Sales/Warehouse subscribe
+```
 
 ## Prerequisites
 
@@ -14,230 +109,285 @@ Before starting with Change Event Streaming setup, ensure you have:
 
 ### SQL Server Requirements
 
+- **SQL Server 2025** (or later) with Change Event Streaming support
 - [SQL Server limitations](https://learn.microsoft.com/en-us/sql/relational-databases/track-changes/change-event-streaming/configure?view=sql-server-ver17#limitations)
 
-## Create an Event Hub
+### Development Tools
 
-Change Event Streaming is designed to stream directly into Azure Event Hubs.  
-Navigate in Azure Portal and create a new EventHub as you can see in the following image  
-![Create EventHub](images/CreateEventHub.jpg)  
+- .NET 8.0 SDK or later
+- Visual Studio 2022 or VS Code
+- Azure Storage Explorer (optional, for monitoring Event Hub checkpoints)
 
-Create a new Entity
+## Setup Instructions
 
-![Create Custom Policy](images/EventHub-CreateEventHub.jpg)  
+### 1. Create Event Hubs
 
-Create a new Policy
+Navigate to Azure Portal and create two Event Hubs:
 
-![Create Custom Policy](images/EventHub-CreatePolicy.jpg)  
+1. **producthub** - for Warehouse product changes
+2. **eventstorehub** - for Sales event store changes
 
-## Generate SAS Token
+![Create EventHub](images/CreateEventHub.jpg)
 
-You'll need a Shared Access Signature (SAS) token for SQL Server and other clients to authenticate against the Event Hub. Because the Azure portal does not provide a GUI for generating SAS tokens, you must generate one using PowerShell, Azure CLI or the Azure SDK. In this case we'll use PowerShell
+Create a new Entity:
 
-### Install PowerShell Modules
+![Create Event Hub Entity](images/EventHub-CreateEventHub.jpg)
 
-Run PowerShell as an administrator and install the necessary modules.  
-Install the general Azure cmdlets (this can take up to 20 minutes)
+Create a new Policy with **Send** and **Listen** permissions:
+
+![Create Custom Policy](images/EventHub-CreatePolicy.jpg)
+
+### 2. Generate SAS Token
+
+You'll need a Shared Access Signature (SAS) token for SQL Server authentication against Event Hubs.
+
+#### Install PowerShell Modules
+
+Run PowerShell as an administrator:
 
 ```powershell
 Install-Module -Name Az -Scope CurrentUser -Repository PSGallery -Force
 Install-Module -Name Az.EventHub -Scope CurrentUser -Force
 ```
 
-### Create a SAS Token Script
+#### Run the SAS Token Script
 
-```powershell
-function Generate-SasToken {
-    # Provide values for following resources.
-    $subscriptionId = "<Your SubscriptionId>"
-    $resourceGroupName = "rg-wpc-2025"
-    $namespaceName = "wpc-eventhub"
-    $eventHubName = "eventstorehub"
-    $policyName = "wpc-policy"
+Two scripts are provided in the `sqlScripts` folder:
 
-    # Login to Azure and set Azure Subscription.
-    Connect-AzAccount
+- `Generate-SAS-Token.ps1` - for eventstorehub (Sales)
+- `Generate-Warehouse-SAS-Token.ps1` - for producthub (Warehouse)
 
-    # Get current context and check subscription
-    $currentContext = Get-AzContext
-    if ($currentContext.Subscription.Id -ne $subscriptionId) {
-        Write-Host "Current subscription is $($currentContext.Subscription.Id), switching to $subscriptionId..."
-        Set-AzContext -SubscriptionId $subscriptionId | Out-Null
-    } else {
-        Write-Host "Already using subscription $subscriptionId."
-    }
-
-    # Try to get the authorization policy (it should have Send rights)
-    $rights = @("Send")
-    $policy = Get-AzEventHubAuthorizationRule -ResourceGroupName $resourceGroupName -NamespaceName $namespaceName -EventHubName $eventHubName -AuthorizationRuleName $policyName -ErrorAction SilentlyContinue
-
-    # If the policy does not exist, create it
-    if (-not $policy) {
-        Write-Output "Policy '$policyName' does not exist. Creating it now..."
-
-        # Create a new policy with the Manage, Send and Listen rights
-        $policy = New-AzEventHubAuthorizationRule -ResourceGroupName $resourceGroupName -NamespaceName $namespaceName -EventHubName $eventHubName -AuthorizationRuleName $policyName -Rights $rights
-        if (-not $policy) {
-            throw "Error. Policy was not created."
-        }
-        Write-Output "Policy '$policyName' created successfully."
-    } else {
-        Write-Output "Policy '$policyName' already exists."
-    }
-
-    if ("Send" -in $policy.Rights) {
-        Write-Host "Authorization rule has required right: Send."
-    } else {
-        throw "Authorization rule is missing Send right."
-    }
-
-    $keys = Get-AzEventHubKey -ResourceGroupName $resourceGroupName -NamespaceName $namespaceName -EventHubName $eventHubName -AuthorizationRuleName $policyName
-
-    if (-not $keys) {
-        throw "Could not obtain Azure Event Hub Key. Script failed and will end now."
-    }
-    if (-not $keys.PrimaryKey) {
-        throw "Could not obtain Primary Key. Script failed and will end now."
-    }
-
-    # Get the Primary Key of the Shared Access Policy
-    $primaryKey = ($keys.PrimaryKey) 
-    Write-Host $primaryKey
-
-    ## Check that the primary key is not empty.
-
-    # Define a function to create a SAS token (similar to the C# code provided)
-    function Create-SasToken {
-        param (
-            [string]$resourceUri, [string]$keyName, [string]$key
-        )
-
-    $sinceEpoch = [datetime]::UtcNow - [datetime]"1970-01-01"
-        $expiry = [int]$sinceEpoch.TotalSeconds + (60 * 60 * 24 * 31 * 6)  # 6 months
-        $stringToSign = [System.Web.HttpUtility]::UrlEncode($resourceUri) + "`n" + $expiry
-        $hmac = New-Object System.Security.Cryptography.HMACSHA256
-        $hmac.Key = [Text.Encoding]::UTF8.GetBytes($key)
-        $signature = [Convert]::ToBase64String($hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes($stringToSign)))
-        $sasToken = "SharedAccessSignature sr=$([System.Web.HttpUtility]::UrlEncode($resourceUri))&sig=$([System.Web.HttpUtility]::UrlEncode($signature))&se=$expiry&skn=$keyName"
-        return $sasToken
-    }
-
-    # Construct the resource URI for the SAS token
-    $resourceUri = "https://$namespaceName.servicebus.windows.net/$eventHubName"
-
-    # Generate the SAS token using the primary key from the new policy
-    $sasToken = Create-SasToken -resourceUri $resourceUri -keyName $policyName -key $primaryKey
-    
-    # Output the SAS token
-    Write-Host "`n-- Generated SAS Token --" -ForegroundColor Gray
-    Write-Host $sasToken -ForegroundColor White
-    Write-Host "-- End of generated SAS Token --`n" -ForegroundColor Gray
- 
-    # Copy the SAS token to the clipboard
-    $sasToken | Set-Clipboard
-    Write-Host "The generated SAS token has been copied to the clipboard." -ForegroundColor Green
-}
-
-Generate-SasToken
-```
-
-### Run the script
-
-Before you can execute the script, you must allow PowerShell to run local scripts:
+Before executing:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ```
 
-Finally, run the script
+Then run:
 
 ```powershell
-.\Generate-SAS-Token.ps1
+.\sqlScripts\Generate-SAS-Token.ps1
+.\sqlScripts\Generate-Warehouse-SAS-Token.ps1
 ```
 
-## It's SQL time
+The script will generate a SAS token and copy it to your clipboard.
 
-Create Your Database, or, if you already have one, access to it!
+### 3. Configure SQL Server - Sales Database
 
-### Configure Change Event Streaming
+Execute the following scripts in order for the **Sales** database:
 
-```sql
-CREATE MASTER KEY ENCRYPTION BY PASSWORD = 'H@rd2Wpc$$P@$$w0rd'
-```
-
-> **⚠️ Security Note**: Replace the example password with a strong, unique password for your environment. Store this password securely as it's required for database operations.
-
-Create a Database Scoped Credential
+#### Enable Change Event Streaming
 
 ```sql
+-- sqlScripts/EnableChangeEventStream.sql
+CREATE MASTER KEY ENCRYPTION BY PASSWORD = 'YourStrongPassword!';
+
 CREATE DATABASE SCOPED CREDENTIAL SqlCesCredential
-WITH
+WITH 
   IDENTITY = 'SHARED ACCESS SIGNATURE',
-  SECRET = '<your SAS Token>'
+  SECRET = '<Your SAS Token for eventstorehub>';
+
+EXEC sys.sp_enable_event_stream;
+
+-- Verify
+SELECT * FROM sys.databases WHERE is_event_stream_enabled = 1;
 ```
 
-> **🔐 Security Reminder**:  
-
-> - Replace `<your SAS Token>` with the actual SAS token generated from the PowerShell script
-> - SAS tokens have a 6-month expiration - set up monitoring to renew before expiry
-> - Store credentials securely and rotate them regularly
-> - Use the principle of least privilege for Event Hub permissions
-
-#### Enable Change Event Streaming for your database ... using a stored procedure
+#### Create Event Stream Group for EventStore
 
 ```sql
-EXEC sys.sp_enable_event_stream
-```
-
-### Verify that it's enabled
-
-```sql
-SELECT * FROM sys.databases WHERE is_event_stream_enabled = 1
-```
-
-#### Now, you need to define an Event Stream Group. An Event Stream Group defines the Event Hub target for your events
-
-```sql
+-- sqlScripts/AddStreamGroupToEventStore.sql
 EXEC sys.sp_create_event_stream_group
-  @stream_group_name      = 'rg-wpc-2025',
+  @stream_group_name      = 'ces-wpc-2025',
   @destination_location   = 'wpc-eventhub.servicebus.windows.net/eventstorehub',
   @destination_credential = SqlCesCredential,
-  @destination_type       = 'AzureEventHubsAmqp'
-```
+  @destination_type       = 'AzureEventHubsAmqp';
 
-#### At this point you're ready to add tables to the Event Stream Group  
-
-Decide whether to include old values and whether to include all columns. Each table in our demo uses different settings for different reasons; old values and all values are included when we need that extra context, and they are excluded in favor of reduced bandwidth for smaller event payloads when we don’t.
-
-```sql
 EXEC sys.sp_add_object_to_event_stream_group
-  @stream_group_name      = 'rg-wpc-2025',
+  @stream_group_name = 'ces-wpc-2025',
   @object_name = 'dbo.EventStore',
-  @include_old_values = 0,      -- do not include old values on updates/deletes
-  @include_all_columns = 1      -- include all columns even if unchanged
+  @include_old_values = 0,
+  @include_all_columns = 1;
+
+-- Verify
+EXEC sp_help_change_feed_table @source_schema = 'dbo', @source_name = 'EventStore';
 ```
 
-#### Verify  
+### 4. Configure SQL Server - Warehouse Database
+
+Execute the following scripts for the **Warehouse** database:
+
+#### Enable Change Event Streaming
 
 ```sql
-EXEC sp_help_change_feed_table @source_schema = 'dbo', @source_name = 'EventStore'
+CREATE MASTER KEY ENCRYPTION BY PASSWORD = 'YourStrongPassword!';
+
+CREATE DATABASE SCOPED CREDENTIAL SqlWarehouseCredential
+WITH 
+  IDENTITY = 'SHARED ACCESS SIGNATURE',
+  SECRET = '<Your SAS Token for producthub>';
+
+EXEC sys.sp_enable_event_stream;
 ```
 
-#### The CloudEvent Payload  
+#### Create Event Stream Group for Product
+
+```sql
+-- sqlScripts/AddStreamGroupToProduct.sql
+EXEC sys.sp_create_event_stream_group
+  @stream_group_name      = 'warehouse-ces-2025',
+  @destination_location   = 'wpc-eventhub.servicebus.windows.net/producthub',
+  @destination_credential = SqlWarehouseCredential,
+  @destination_type       = 'AzureEventHubsAmqp';
+
+EXEC sys.sp_add_object_to_event_stream_group
+  @stream_group_name      = 'warehouse-ces-2025',
+  @object_name = 'dbo.Product',
+  @include_old_values = 1,
+  @include_all_columns = 1;
+
+-- Verify
+EXEC sp_help_change_feed_table @source_schema = 'dbo', @source_name = 'Product';
+```
+
+### 5. Configure Application Settings
+
+Update the `appsettings.json` files in both microservices with your connection strings and Event Hub details.
+
+**Sales API** (`src/BrewUpSales/BrewUp.Rest/appsettings.json`):
 
 ```json
 {
-    "specversion": "1.0",
-    "type": "com.microsoft.SQL.CES.DML.V1",
-    "source": "\/",
-    "id": "cc3fcdca-09c0-4f46-a8d3-5d0c3c1eb85a",
-    "logicalid": "8376457a-17af-49f4-b9ea-0d5071f515f4:0000002C000007300011:00000000000000000002",
-    "time": "2025-11-03T12:29:46.290Z",
-    "datacontenttype": "application\/avro-json",
-    "operation": "INS",
-    "segmentindex": 1,
-    "finalsegment": true,
-    "data": "{\n  \"eventsource\": {\n    \"db\": \"WpcDemo\",\n    \"schema\": \"dbo\",\n    \"tbl\": \"Product\",\n    \"cols\": [\n      {\n        \"name\": \"ProductId\",\n        \"type\": \"int\",\n        \"index\": 0\n      },\n      {\n        \"name\": \"ItemsInStock\",\n        \"type\": \"smallint\",\n        \"index\": 5\n      }\n    ],\n    \"pkkey\": [\n      {\n        \"columnname\": \"ProductId\",\n        \"value\": \"2\"\n      }\n    ],\n    \"transaction\": {\n      \"commitlsn\": \"0000002C:00000730:0011\",\n      \"beginlsn\": \"0000002C:00000730:000C\",\n      \"sequencenumber\": 2,\n      \"committime\": \"2025-06-30T12:29:46.290Z\"\n    }\n  },\n  \"eventrow\": {\n    \"old\": \"{\\\"ProductId\\\": \\\"2\\\", \\\"ItemsInStock\\\": \\\"8\\\"}\",\n    \"current\": \"{\\\"ProductId\\\": \\\"2\\\", \\\"ItemsInStock\\\": \\\"7\\\"}\"\n  }\n}"
+  "ConnectionStrings": {
+    "SalesConnection": "Your SQL Server Connection String"
+  },
+  "EventHub": {
+    "ConnectionString": "Endpoint=sb://wpc-eventhub.servicebus.windows.net/...",
+    "EventHubName": "eventstorehub",
+    "ConsumerGroup": "$Default",
+    "BlobStorageConnectionString": "Your Blob Storage Connection String",
+    "BlobContainerName": "checkpoints"
+  }
+}
+```
+
+**Warehouse API** (`src/BrewUpWarehouse/BrewUp.Rest/appsettings.json`):
+
+```json
+{
+  "ConnectionStrings": {
+    "WarehouseConnection": "Your SQL Server Connection String"
+  },
+  "EventHub": {
+    "ConnectionString": "Endpoint=sb://wpc-eventhub.servicebus.windows.net/...",
+    "EventHubName": "producthub",
+    "ConsumerGroup": "$Default",
+    "BlobStorageConnectionString": "Your Blob Storage Connection String",
+    "BlobContainerName": "checkpoints"
+  }
+}
+```
+
+### 6. Run the Applications
+
+Open the solutions in Visual Studio or use the command line:
+
+```bash
+# Terminal 1 - Sales API
+cd src/BrewUpSales
+dotnet run --project BrewUp.Rest
+
+# Terminal 2 - Warehouse API
+cd src/BrewUpWarehouse
+dotnet run --project BrewUp.Rest
+```
+
+## Testing the Scenarios
+
+### Test Scenario 1: Product Synchronization
+
+1. Create a product via Warehouse API:
+
+```bash
+POST http://localhost:5001/api/products
+Content-Type: application/json
+
+{
+  "productId": "prod-001",
+  "name": "Premium IPA",
+  "description": "Hoppy craft beer",
+  "unitPrice": 5.99,
+  "itemsInStock": 100
+}
+```
+
+2. Verify the product appears in the Sales database `Product` table
+3. Check Event Hub metrics in Azure Portal for messages received
+
+### Test Scenario 2: Sales Order with Event Sourcing
+
+1. Create a sales order via Sales API:
+
+Use the provided JSON file:
+
+```bash
+POST http://localhost:5000/api/sales/orders
+Content-Type: application/json
+
+# Use sqlScripts/CreateSalesOrder.json
+```
+
+2. Verify:
+   - Event is saved in `dbo.EventStore` (Sales DB)
+   - Read model updated in `dbo.SalesOrder` (Sales DB)
+   - Event appears in Event Hub
+   - Warehouse processes the integration event
+
+## CloudEvent Format
+
+Change Event Streaming publishes events in CloudEvents format. Example:
+
+```json
+{
+  "specversion": "1.0",
+  "type": "com.microsoft.SQL.CES.DML.V1",
+  "source": "/",
+  "id": "cc3fcdca-09c0-4f46-a8d3-5d0c3c1eb85a",
+  "time": "2025-11-03T12:29:46.290Z",
+  "datacontenttype": "application/avro-json",
+  "operation": "INS",
+  "segmentindex": 1,
+  "finalsegment": true,
+  "data": {
+    "eventsource": {
+      "db": "WpcDemo",
+      "schema": "dbo",
+      "tbl": "Product",
+      "cols": [
+        {
+          "name": "ProductId",
+          "type": "int",
+          "index": 0
+        }
+      ],
+      "pkkey": [
+        {
+          "columnname": "ProductId",
+          "value": "2"
+        }
+      ],
+      "transaction": {
+        "commitlsn": "0000002C:00000730:0011",
+        "beginlsn": "0000002C:00000730:000C",
+        "sequencenumber": 2,
+        "committime": "2025-06-30T12:29:46.290Z"
+      }
+    },
+    "eventrow": {
+      "old": null,
+      "current": "{\"ProductId\": \"2\", \"Name\": \"Premium IPA\"}"
+    }
+  }
 }
 ```
 
@@ -248,42 +398,55 @@ EXEC sp_help_change_feed_table @source_schema = 'dbo', @source_name = 'EventStor
 #### 1. PowerShell Module Installation Issues
 
 **Problem**: `Install-Module` fails or takes too long
-```
+
+```text
 Install-Module : Access is denied
 ```
-**Solutions**:
+
+**Solutions:**
+
 - Run PowerShell as Administrator
 - Use `-Scope CurrentUser` if you can't install system-wide
 - Check execution policy: `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`
 
-#### 2. Azure Authentication Problems  
+#### 2. Azure Authentication Problems
+
 **Problem**: `Connect-AzAccount` fails or wrong subscription
-```
+
+```text
 Connect-AzAccount : AADSTS50058: A silent sign-in request was sent but no user is signed in.
 ```
-**Solutions**:
+
+**Solutions:**
+
 - Ensure you're logged into the correct Azure tenant
 - Use `Connect-AzAccount -TenantId <tenant-id>` for specific tenant
 - Verify subscription access: `Get-AzSubscription`
 
 #### 3. Event Hub Connection Issues
+
 **Problem**: SQL Server can't connect to Event Hub
-```
+
+```text
 Error: Failed to connect to Event Hub endpoint
 ```
-**Solutions**:
+
+**Solutions:**
+
 - Verify SAS token is not expired (6-month limit)
 - Check firewall rules allow outbound connections to `*.servicebus.windows.net`
 - Ensure Event Hub namespace and hub names are correct
 - Verify the authorization policy has "Send" permissions
 
 #### 4. Change Event Streaming Not Enabled
+
 **Problem**: `sp_enable_event_stream` fails
-```
+
+```text
 Msg 40001, Database 'YourDB' is not enabled for change feed
 ```
 
-**Solutions**:
+**Solutions:**
 
 - Verify SQL Server 2025 version supports CES
 - Check database compatibility level
@@ -293,20 +456,22 @@ Msg 40001, Database 'YourDB' is not enabled for change feed
 #### 5. Event Stream Group Creation Fails
 
 **Problem**: Cannot create event stream group
-```
 
+```text
 The operation failed because the database scoped credential does not exist
 ```
 
-**Solutions**:
+**Solutions:**
 
-- Ensure `SqlCesCredential` was created successfully
+- Ensure credential was created successfully
 - Verify SAS token format (should start with `SharedAccessSignature sr=`)
 - Check credential exists: `SELECT * FROM sys.database_scoped_credentials`
 
 #### 6. No Events Being Streamed
+
 **Problem**: Tables added but no events appear in Event Hub
-**Solutions**:
+
+**Solutions:**
 
 - Verify table is added to stream group: `EXEC sp_help_change_feed_table`
 - Check stream group status: `SELECT * FROM sys.event_stream_groups`
@@ -317,22 +482,88 @@ The operation failed because the database scoped credential does not exist
 
 ```sql
 -- Check if Change Event Streaming is enabled
-SELECT name, is_change_feed_enabled FROM sys.databases WHERE name = DB_NAME()
+SELECT name, is_event_stream_enabled 
+FROM sys.databases 
+WHERE name = DB_NAME();
 
 -- List all event stream groups
-SELECT * FROM sys.event_stream_groups
+SELECT * FROM sys.event_stream_groups;
 
--- Check tables in stream groups  
-SELECT * FROM sys.event_stream_group_tables
+-- Check tables in stream groups
+SELECT * FROM sys.event_stream_group_tables;
 
 -- Verify database scoped credentials
-SELECT * FROM sys.database_scoped_credentials
+SELECT * FROM sys.database_scoped_credentials;
 
--- Check stream status
-EXEC sp_help_change_feed_table @source_schema = 'dbo', @source_name = 'EventStore'
+-- Check stream status for specific table
+EXEC sp_help_change_feed_table 
+  @source_schema = 'dbo', 
+  @source_name = 'EventStore';
+
+-- View all tables with change feed
+EXEC sys.sp_help_change_feed_table_groups;
 ```
 
-### Getting Help
+## Key Benefits of This Approach
 
-- **SQL Server Documentation**: [Change Event Streaming Documentation](https://learn.microsoft.com/en-us/sql/relational-databases/track-changes/change-event-streaming/overview?view=sql-server-ver17)
-- **Azure Event Hubs**: [Event Hubs Troubleshooting Guide](https://learn.microsoft.com/en-us/azure/event-hubs/)
+1. **Loose Coupling**: Microservices don't need direct knowledge of each other
+2. **Real-time Synchronization**: Changes are streamed immediately
+3. **Audit Trail**: Event sourcing provides complete history
+4. **Scalability**: Event Hub handles high-throughput scenarios
+5. **Reliability**: Built-in retry and checkpoint mechanisms
+6. **Standard Protocol**: CloudEvents ensures interoperability
+
+## Resources
+
+- **SQL Server Documentation**: [Change Event Streaming Overview](https://learn.microsoft.com/en-us/sql/relational-databases/track-changes/change-event-streaming/overview?view=sql-server-ver17)
+- **Azure Event Hubs**: [Event Hubs Documentation](https://learn.microsoft.com/en-us/azure/event-hubs/)
+- **CloudEvents**: [CloudEvents Specification](https://cloudevents.io/)
+- **CQRS-ES Pattern**: [Microsoft Architecture Guide](https://learn.microsoft.com/en-us/azure/architecture/patterns/cqrs)
+
+## Project Structure
+
+```text
+WPC-2025/
+├── src/
+│   ├── BrewUpSales/              # Sales Microservice
+│   │   ├── BrewUp.Rest/          # API Layer
+│   │   ├── Sales/                # Domain & Infrastructure
+│   │   │   ├── BrewUp.Sales.Domain/
+│   │   │   ├── BrewUp.Sales.Facade/
+│   │   │   └── BrewUp.Sales.Infrastructure/
+│   │   ├── BrewUp.Shared/        # Shared Components
+│   │   └── Muflone.Persistence.Azure/  # Event Store
+│   │
+│   └── BrewUpWarehouse/          # Warehouse Microservice
+│       ├── BrewUp.Rest/          # API Layer
+│       ├── Warehouse/            # Domain & Infrastructure
+│       │   ├── BrewUp.Warehouse.Domain/
+│       │   ├── BrewUp.Warehouse.Facade/
+│       │   └── BrewUp.Warehouse.ReadModel/
+│       └── BrewUp.Shared/        # Shared Components
+│
+├── sqlScripts/                   # SQL Setup Scripts
+│   ├── EnableChangeEventStream.sql
+│   ├── AddStreamGroupToEventStore.sql
+│   ├── AddStreamGroupToProduct.sql
+│   ├── Generate-SAS-Token.ps1
+│   └── Generate-Warehouse-SAS-Token.ps1
+│
+└── images/                       # Documentation Images
+```
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## Acknowledgments
+
+This demo was created to showcase SQL Server 2025 Change Event Streaming capabilities at WPC 2025.
+
+---
+
+**Note**: This is a demonstration project. For production use, implement proper error handling, monitoring, security practices, and consider using additional patterns like Saga for distributed transactions.
