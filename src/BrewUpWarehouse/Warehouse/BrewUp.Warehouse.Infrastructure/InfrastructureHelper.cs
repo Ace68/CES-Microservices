@@ -1,4 +1,4 @@
-using BrewUp.Shared.Domain;
+using BrewUp.Shared.ReadModel;
 using BrewUp.Warehouse.Entities.Entities;
 using BrewUp.Warehouse.Infrastructure.Repository;
 using Microsoft.EntityFrameworkCore;
@@ -15,7 +15,7 @@ public static class InfrastructureHelper
         services.AddDbContext<WarehouseContext>(options =>
             options.UseSqlServer(configurationManager["BrewUp:SqlServer:ConnectionString"]!));
         
-        services.AddScoped<IBrewUpRepository<Product>, ProductRepository>();
+        services.AddScoped<IBrewUpPersister<Product>, ProductPersister>();
         
         return services;
     }

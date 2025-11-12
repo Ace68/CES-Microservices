@@ -1,8 +1,9 @@
-﻿using Muflone.Messages.Events;
+﻿using BrewUp.Shared.Domain;
+using Muflone.Messages.Events;
 
-namespace BrewUp.Shared.Domain;
+namespace BrewUp.Shared.ReadModel;
 
-public interface IBrewUpRepository<T> where T : BrewUpAggregateRoot
+public interface IBrewUpPersister<T> where T : BrewUpAggregateRoot
 {
    
     Task<T> GetByIdAsync(string id, CancellationToken cancellationToken);

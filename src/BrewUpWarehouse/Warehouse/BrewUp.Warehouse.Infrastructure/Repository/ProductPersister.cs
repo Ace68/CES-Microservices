@@ -1,6 +1,6 @@
 ﻿using System.Reflection;
-using BrewUp.Shared.Domain;
 using BrewUp.Shared.Exceptions;
+using BrewUp.Shared.ReadModel;
 using BrewUp.Warehouse.Entities.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -11,15 +11,15 @@ using Newtonsoft.Json.Serialization;
 
 namespace BrewUp.Warehouse.Infrastructure.Repository;
 
-public class ProductRepository(WarehouseContext warehouseContext,
+public class ProductPersister(WarehouseContext warehouseContext,
     IEventBus eventBus,
-    ILoggerFactory loggerFactory) : IBrewUpRepository<Product>
+    ILoggerFactory loggerFactory) : IBrewUpPersister<Product>
 {
-    private readonly ILogger _logger = loggerFactory.CreateLogger<ProductRepository>();
+    private readonly ILogger _logger = loggerFactory.CreateLogger<ProductPersister>();
     private IEnumerable<DomainEvent> Published { get; set; } = [];
     private static readonly JsonSerializerSettings SerializerSettings;
     
-    static ProductRepository()
+    static ProductPersister()
     {
         SerializerSettings = new JsonSerializerSettings
         {
