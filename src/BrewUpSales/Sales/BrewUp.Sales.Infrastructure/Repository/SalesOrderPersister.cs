@@ -1,47 +1,35 @@
 ﻿using System.Reflection;
-using System.Text;
-using BrewUp.Infrastructure.Helpers;
 using BrewUp.Sales.Entities.Dtos;
-using BrewUp.Shared.Domain;
 using BrewUp.Shared.Exceptions;
+using BrewUp.Shared.ReadModel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Muflone;
-using Muflone.Core;
 using Muflone.Messages.Events;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 
 namespace BrewUp.Sales.Infrastructure.Repository;
 
-public class ProductRepository(SalesContext salesContext,
+public class SalesOrderPersister(SalesContext salesContext,
     IEventBus eventBus,
-    ILoggerFactory loggerFactory) : IBrewUpRepository<Product>
+    ILoggerFactory loggerFactory) : IBrewUpPersister<SalesOrder>
 {
-    private readonly ILogger _logger = loggerFactory.CreateLogger<ProductRepository>();
+    private readonly ILogger _logger = loggerFactory.CreateLogger<SalesOrderPersister>();
     private IEnumerable<DomainEvent> Published { get; set; } = [];
-    private static readonly JsonSerializerSettings SerializerSettings;
     
-    static ProductRepository()
-    {
-        SerializerSettings = new JsonSerializerSettings
-        {
-            TypeNameHandling = TypeNameHandling.None,
-            ContractResolver = new PrivateContractResolver()
-        };
-    }
-    
-    public async Task<Product> GetByIdAsync(string id, CancellationToken cancellationToken)
+    public async Task<SalesOrder> GetByIdAsync(string id, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         try
         {
-            var queryable = salesContext.Set<Product>()
+            var queryable = salesContext.Set<SalesOrder>()
+                .Include(c => c.SalesOrderRows)
                 .Where(a => a.Id.Equals(id));
             var result = await queryable.FirstOrDefaultAsync(cancellationToken: cancellationToken);
         
-            return result ?? ConstructAggregate<Product>();
+            return result ?? ConstructAggregate<SalesOrder>();
         }
         catch (Exception ex)
         {
@@ -50,7 +38,7 @@ public class ProductRepository(SalesContext salesContext,
         }
     }
 
-    public async Task AddAsync(Product entity, CancellationToken cancellationToken)
+    public async Task AddAsync(SalesOrder entity, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -77,7 +65,7 @@ public class ProductRepository(SalesContext salesContext,
         }
     }
 
-    public async Task UpdateAsync(Product entity, CancellationToken cancellationToken)
+    public async Task UpdateAsync(SalesOrder entity, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -103,7 +91,7 @@ public class ProductRepository(SalesContext salesContext,
         }
     }
 
-    public async Task DeleteAsync(Product entity, CancellationToken cancellationToken)
+    public async Task DeleteAsync(SalesOrder entity, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         
@@ -129,7 +117,7 @@ public class ProductRepository(SalesContext salesContext,
         }
     }
 
-    public async Task PublishAggregateEventsAsync(Product entity, CancellationToken cancellationToken)
+    public async Task PublishAggregateEventsAsync(SalesOrder entity, CancellationToken cancellationToken)
     {
         IEnumerable<DomainEvent> uncommittedEvents = entity.GetUncommittedEvents().ToList();
         Published = uncommittedEvents;
@@ -146,23 +134,23 @@ public class ProductRepository(SalesContext salesContext,
         return Published;
     }
     
-    private async Task AddEntityAsync(Product entity, CancellationToken cancellationToken)
+    private async Task AddEntityAsync(SalesOrder entity, CancellationToken cancellationToken)
     {
-        var dbSet = salesContext.Set<Product>();
+        var dbSet = salesContext.Set<SalesOrder>();
         await dbSet.AddAsync(entity, cancellationToken);
         await salesContext.SaveChangesAsync(cancellationToken);
     }
     
-    private async Task UpdateEntityAsync(Product entity, CancellationToken cancellationToken)
+    private async Task UpdateEntityAsync(SalesOrder entity, CancellationToken cancellationToken)
     {
-        var dbSet = salesContext.Set<Product>();
+        var dbSet = salesContext.Set<SalesOrder>();
         dbSet.Update(entity);
         await salesContext.SaveChangesAsync(cancellationToken);
     }
     
-    private async Task DeleteEntityAsync(Product entity, CancellationToken cancellationToken)
+    private async Task DeleteEntityAsync(SalesOrder entity, CancellationToken cancellationToken)
     {
-        salesContext.Set<Product>().Remove(entity);
+        salesContext.Set<SalesOrder>().Remove(entity);
         await salesContext.SaveChangesAsync(cancellationToken);
     }
     
@@ -203,4 +191,18 @@ public class ProductRepository(SalesContext salesContext,
         // GC.SuppressFinalize(this);
     }
     #endregion
+}
+
+internal class PrivateContractResolver : DefaultContractResolver
+{
+    protected override IList<JsonProperty> CreateProperties(Type type, MemberSerialization memberSerialization)
+    {
+        var props = type.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+            .Select(p => base.CreateProperty(p, memberSerialization))
+            .Union(type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+                .Select(f => base.CreateProperty(f, memberSerialization)))
+            .ToList();
+        props.ForEach(p => { p.Writable = true; p.Readable = true; });
+        return props;
+    }
 }

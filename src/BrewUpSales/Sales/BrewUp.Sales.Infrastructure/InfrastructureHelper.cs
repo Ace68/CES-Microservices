@@ -1,6 +1,6 @@
 using BrewUp.Sales.Entities.Dtos;
 using BrewUp.Sales.Infrastructure.Repository;
-using BrewUp.Shared.Domain;
+using BrewUp.Shared.ReadModel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,8 +15,8 @@ public static class InfrastructureHelper
         services.AddDbContext<SalesContext>(options =>
             options.UseSqlServer(configurationManager["BrewUp:SqlServer:ConnectionString"]!));
         
-        services.AddScoped<IBrewUpRepository<SalesOrder>, SalesOrderRepository>();
-        services.AddScoped<IBrewUpRepository<Product>, ProductRepository>();
+        services.AddScoped<IBrewUpPersister<SalesOrder>, SalesOrderPersister>();
+        services.AddScoped<IBrewUpPersister<Product>, ProductPersister>();
         
         return services;
     }

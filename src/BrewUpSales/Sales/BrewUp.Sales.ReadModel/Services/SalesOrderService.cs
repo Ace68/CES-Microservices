@@ -1,6 +1,5 @@
 ﻿using BrewUp.Sales.Entities.Dtos;
 using BrewUp.Sales.SharedKernel.CustomTypes;
-using BrewUp.Shared.Domain;
 using BrewUp.Shared.Exceptions;
 using BrewUp.Shared.ExternalContracts;
 using BrewUp.Shared.ReadModel;
@@ -9,7 +8,7 @@ using Microsoft.Extensions.Logging;
 namespace BrewUp.Sales.ReadModel.Services;
 
 internal sealed class SalesOrderService(IQueries<SalesOrder> salesOrderQuery,
-    IBrewUpRepository<SalesOrder> salesOrderRepository,
+    IBrewUpPersister<SalesOrder> salesOrderRepository,
     ILoggerFactory loggerFactory) : ISalesOrderService
 {
     private readonly ILogger _logger = loggerFactory.CreateLogger<SalesOrderService>();

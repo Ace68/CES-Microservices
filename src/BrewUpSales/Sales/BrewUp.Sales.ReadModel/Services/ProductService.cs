@@ -1,13 +1,13 @@
 ﻿using BrewUp.Sales.Entities.Dtos;
 using BrewUp.Sales.SharedKernel.CustomTypes;
-using BrewUp.Shared.Domain;
 using BrewUp.Shared.Exceptions;
+using BrewUp.Shared.ReadModel;
 using Microsoft.Extensions.Logging;
 
 namespace BrewUp.Sales.ReadModel.Services;
 
 internal sealed class ProductService(
-    IBrewUpRepository<Product> productRepository,
+    IBrewUpPersister<Product> productRepository,
     ILoggerFactory loggerFactory) : IProductService
 {
     private readonly ILogger _logger = loggerFactory.CreateLogger<ProductService>();
