@@ -25,7 +25,7 @@ public static class PersistenceAzureHelper
 				sp.GetRequiredService<IEventBus>(),
 				sp.GetRequiredService<ILogger<EventHubListener>>()));
 		services.AddHostedService<EventHubListenerHostedService>();
-		
+		 
 		// services.AddHostedService<EventDispatcherHostedService>(sp =>
 		// 	new EventDispatcherHostedService(
 		// 		new EventDispatcher(
