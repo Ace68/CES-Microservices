@@ -1,0 +1,11 @@
+{
+  "productName": "Muflone Strong Belgian Ale",
+  "productDescription": "Muflone Strong Belgian Ale",
+  "productType": "Ale",
+  "availabilities": [
+    {
+      "reference": "Availability",
+      "quantity": 200
+    }
+  ]
+}
