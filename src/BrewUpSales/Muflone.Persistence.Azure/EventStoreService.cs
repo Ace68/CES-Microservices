@@ -19,7 +19,8 @@ internal sealed class EventStoreService(EventStoreContext eventStoreContext,
         try
         {
             var readResult = await eventStoreContext.Set<EventStore>()
-                .Where(a => a.AggregateId.Equals(aggregateId))
+                .Where(e => e.AggregateId.Equals(aggregateId))
+                .OrderBy(e => e.CommitPosition)
                 .ToListAsync(cancellationToken: cancellationToken);
             
             return readResult.Select(RepositoryHelper.ToDeserializedEvent).ToList();
