@@ -1,7 +1,5 @@
-﻿using System.Text;
-using System.Text.Json;
+﻿using System.Text.Json;
 using Azure.Messaging.EventHubs;
-using Azure.Messaging.EventHubs.Consumer;
 using Azure.Messaging.EventHubs.Processor;
 using Azure.Storage.Blobs;
 using BrewUp.Shared.Configuration;
@@ -106,7 +104,7 @@ public sealed class ProductHubHandler(
             var name = col.GetProperty("name").GetString();
             Console.WriteLine($"\t{name}: {current[name]}");
             var content = current[name];
-            Console.WriteLine($"\t{name}: {current[name]}");
+            Console.WriteLine($"\t{name}: {current[content]}");
         }
  
         Console.ResetColor();

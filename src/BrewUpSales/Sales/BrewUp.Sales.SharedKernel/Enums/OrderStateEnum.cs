@@ -4,10 +4,11 @@ public class OrderStateEnum : Enumeration
 {
     public static OrderStateEnum Open = new(1, "Open", "Open");
     public static OrderStateEnum Close = new(2, "Close", "Close");
+    public static OrderStateEnum Sent = new(3, "Sent", "Sent");
     
     public static IEnumerable<OrderStateEnum> List() =>
     [
-        Open, Close
+        Open, Close, Sent
     ];
     
     public OrderStateEnum(int id, string code, string name) : base(id, code, name)

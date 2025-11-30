@@ -1,4 +1,5 @@
-﻿using BrewUp.Warehouse.ReadModel.EventHandlers;
+﻿using BrewUp.Shared.Configuration;
+using BrewUp.Warehouse.ReadModel.EventHandlers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Muflone;
@@ -11,6 +12,12 @@ public static class WarehouseReadModelHelper
         IConfigurationManager configurationManager)
     {
         services.AddDomainEventHandler<AvailabilityUpdatedEventHandler>();
+        
+        var eventhubParameters = configurationManager.GetSection("Muflone:EventHub").Get<EventHubParameters>();
+        services.AddSingleton<ProductHubHandler>(_ => 
+            new ProductHubHandler(
+                eventhubParameters!));
+        services.AddHostedService<EventHubListenerHostedService>();
 
         return services;
     }

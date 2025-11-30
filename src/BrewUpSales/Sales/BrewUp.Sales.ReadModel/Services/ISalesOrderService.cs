@@ -12,4 +12,7 @@ public interface ISalesOrderService
         SalesOrderDate salesOrderDate, CustomerId customerId, CustomerName customerName,
         SalesOrderDeliveryDate salesOrderDeliveryDate, IEnumerable<SalesOrderRowJson> rows,
         CancellationToken cancellationToken);
+
+    Task SendSalesOrderAsync(SalesOrderId salesOrderId, SalesOrderDeliveryDate salesOrderDeliveryDate,
+        CancellationToken cancellationToken);
 }

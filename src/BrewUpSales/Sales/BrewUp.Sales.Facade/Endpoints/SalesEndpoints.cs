@@ -15,8 +15,7 @@ public static class SalesEndpoints
     public static WebApplication MapSalesEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/v1/sales")
-            .WithTags("Sales")
-            .WithOpenApi();
+            .WithTags("Sales");
 
         group.MapPost("/", HandlePostCreateSalesOrder)
             .Produces(StatusCodes.Status201Created)
@@ -26,13 +25,21 @@ public static class SalesEndpoints
                 "Creates a new sales order. This endpoint is used to add a new sales order.")
             .WithName("CreateSalesOrder");
         
-        group.MapPut("/{orderId}", HandleUpdateSalesOrder)
+        group.MapPut("/{orderId}/close", HandleCloseSalesOrder)
             .Produces(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status500InternalServerError)
-            .WithSummary("Update sales order")
+            .WithSummary("Close sales order")
             .WithDescription(
-                "Updates the sales order. This endpoint is used to update the sales order.")
-            .WithName("UpdateSalesOrder");
+                "Closes the sales order. This endpoint is used to close the sales order.")
+            .WithName("CloseSalesOrder");
+        
+        group.MapPut("/{orderId}/send", HandleSendSalesOrder)
+            .Produces(StatusCodes.Status201Created)
+            .Produces(StatusCodes.Status500InternalServerError)
+            .WithSummary("Send sales order")
+            .WithDescription(
+                "Sends the sales order. This endpoint is used to send the sales order.")
+            .WithName("SendSalesOrder");
         
         group.MapGet("/", HandleGetSalesOrder)
             .Produces<PagedResult<SalesOrderJson>>()
@@ -77,7 +84,7 @@ public static class SalesEndpoints
         }
     }
 
-    private static async Task<IResult> HandleUpdateSalesOrder(
+    private static async Task<IResult> HandleCloseSalesOrder(
         ISalesDomainService salesDomainService,
         string orderId,
         CancellationToken cancellationToken)
@@ -85,6 +92,17 @@ public static class SalesEndpoints
         cancellationToken.ThrowIfCancellationRequested();
         
         await salesDomainService.UpdateSalesOrderAsync(orderId, cancellationToken);
+        return Results.NoContent();
+    }
+    
+    private static async Task<IResult> HandleSendSalesOrder(
+        ISalesDomainService salesDomainService,
+        string orderId,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        
+        await salesDomainService.SendSalesOrderAsync(orderId, cancellationToken);
         return Results.NoContent();
     }
     

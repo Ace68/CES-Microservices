@@ -76,6 +76,25 @@ public class SalesOrder : AggregateRoot
 		OrderState = OrderStateEnum.Close;
 	}
 	
+	internal void SendOrder(SalesOrderDeliveryDate deliveryDate, Guid correlationId)
+	{
+		if (Equals(OrderState, OrderStateEnum.Open))
+		{
+			RaiseEvent(new SalesOrderExceptionRaised(new SalesOrderId(Id.Value),
+				new BrewUpAggregateException(Id.Value, GetType().FullName!, "Order Already Open!"), correlationId));
+			return;
+		}
+		
+		RaiseEvent(new SalesOrderSent(new SalesOrderId(Id.Value), deliveryDate, correlationId));
+	}
+	
+	private void Apply(SalesOrderSent @event)
+	{
+		DeliveryDate = @event.SalesOrderDeliveryDate;
+		
+		OrderState = OrderStateEnum.Sent;
+	}
+	
 	private void Apply(SalesOrderExceptionRaised @event)
 	{
 		// No state change

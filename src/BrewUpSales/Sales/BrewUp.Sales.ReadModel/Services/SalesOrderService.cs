@@ -44,4 +44,23 @@ internal sealed class SalesOrderService(IQueries<SalesOrder> salesOrderQuery,
             UtilitiesService.LogError(ex, _logger);
         }
     }
+
+    public async Task SendSalesOrderAsync(SalesOrderId salesOrderId, SalesOrderDeliveryDate salesOrderDeliveryDate,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        
+        try
+        {
+            var salesOrder = await salesOrderQuery.GetByIdAsync(salesOrderId.ToString(), cancellationToken);
+            if (salesOrder == null || salesOrder.Id == string.Empty)
+                throw new Exception($"Sales order with id {salesOrderId} not found in read model");
+            
+            salesOrder.SendSalesOrder(salesOrderDeliveryDate);
+        }
+        catch (Exception ex)
+        {
+            UtilitiesService.LogError(ex, _logger);
+        }
+    }
 }

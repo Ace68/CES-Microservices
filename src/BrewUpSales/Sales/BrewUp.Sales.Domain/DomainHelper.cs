@@ -12,6 +12,7 @@ public static class DomainHelper
 
         services.AddCommandHandler<CreateSalesOrderCommandHandler>();
         services.AddCommandHandler<CloseSalesOrderCommandHandler>();
+        services.AddCommandHandler<SendSalesOrderCommandHandler>();
         
         return services;
     }

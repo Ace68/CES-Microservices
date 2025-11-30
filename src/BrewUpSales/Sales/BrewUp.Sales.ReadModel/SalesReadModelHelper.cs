@@ -21,6 +21,7 @@ public static class SalesReadModelHelper
 
         services.AddDomainEventHandler<SalesOrderCreatedEventHandler>();
         services.AddDomainEventHandler<SalesOrderCreatedForIntegrationEventHandler>();
+        services.AddDomainEventHandler<SalesOrderSentEventHandler>();
         services.AddIntegrationEventHandler<ProductCreatedEventHandler>();
         
         var eventhubParameters = configurationManager.GetSection("Muflone:EventHub").Get<EventHubParameters>();

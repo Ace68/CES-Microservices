@@ -66,4 +66,10 @@ public class SalesOrder : BrewUpAggregateRoot
         SalesOrderDeliveryDate = orderDeliveryDate.Value;
         Status = "Closed";
     }
+    
+    public void SendSalesOrder(SalesOrderDeliveryDate orderDeliveryDate)
+    {
+        SalesOrderDeliveryDate = orderDeliveryDate.Value;
+        Status = "Sent";
+    }
 }

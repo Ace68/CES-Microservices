@@ -17,16 +17,6 @@ public class ProductPersister(WarehouseContext warehouseContext,
 {
     private readonly ILogger _logger = loggerFactory.CreateLogger<ProductPersister>();
     private IEnumerable<DomainEvent> Published { get; set; } = [];
-    private static readonly JsonSerializerSettings SerializerSettings;
-    
-    static ProductPersister()
-    {
-        SerializerSettings = new JsonSerializerSettings
-        {
-            TypeNameHandling = TypeNameHandling.None,
-            ContractResolver = new PrivateContractResolver()
-        };
-    }
     
     public async Task<Product> GetByIdAsync(string id, CancellationToken cancellationToken)
     {
@@ -65,8 +55,6 @@ public class ProductPersister(WarehouseContext warehouseContext,
                 // Skip transaction for InMemory provider
                 await AddEntityAsync(entity, cancellationToken);
             }
-            
-            await PublishAggregateEventsAsync(entity, cancellationToken);
         }
         catch (Exception ex)
         {
