@@ -13,6 +13,8 @@ public class SalesContext(DbContextOptions<SalesContext> options) : DbContext(op
     public DbSet<Product> Product { get; set; }
     public DbSet<Availability> Availability { get; set; }
     
+    public DbSet<SalesForProduct> SalesForProduct { get; set; }
+    
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         // Logging configuration
@@ -40,6 +42,8 @@ public class SalesContext(DbContextOptions<SalesContext> options) : DbContext(op
         
         modelBuilder.ApplyConfiguration(new ProductMapping());
         modelBuilder.ApplyConfiguration(new AvailabilityMapping());
+        
+        modelBuilder.ApplyConfiguration(new SalesForProductMapping());
         
         modelBuilder.Entity<SalesOrder>()
             .HasMany(s => s.SalesOrderRows)

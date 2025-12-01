@@ -104,7 +104,7 @@ public sealed class ProductHubHandler(
             var name = col.GetProperty("name").GetString();
             Console.WriteLine($"\t{name}: {current[name]}");
             var content = current[name];
-            Console.WriteLine($"\t{name}: {current[content]}");
+            Console.WriteLine($"\t{name}: {content}");
         }
  
         Console.ResetColor();

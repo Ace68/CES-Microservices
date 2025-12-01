@@ -17,6 +17,7 @@ public static class InfrastructureHelper
         
         services.AddScoped<IBrewUpPersister<SalesOrder>, SalesOrderPersister>();
         services.AddScoped<IBrewUpPersister<Product>, ProductPersister>();
+        services.AddScoped<IBrewUpPersister<SalesForProduct>, SalesForProductPersister>();
         
         return services;
     }

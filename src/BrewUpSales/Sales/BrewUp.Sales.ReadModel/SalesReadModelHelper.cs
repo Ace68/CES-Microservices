@@ -20,6 +20,7 @@ public static class SalesReadModelHelper
         services.AddScoped<IProductService, ProductService>();
 
         services.AddDomainEventHandler<SalesOrderCreatedEventHandler>();
+        services.AddDomainEventHandler<SalesOrderCreatedForProductsEventHandler>();
         services.AddDomainEventHandler<SalesOrderCreatedForIntegrationEventHandler>();
         services.AddDomainEventHandler<SalesOrderSentEventHandler>();
         services.AddIntegrationEventHandler<ProductCreatedEventHandler>();
